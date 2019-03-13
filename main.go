@@ -10,13 +10,15 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
+
 	"github.com/gorilla/mux"
 )
 
 var signInFormTmpl = []byte(`
 <html>
 	<body>
-		<form action="/v1/" method="post">
+		<form action="/v1/signin" method="post">
 			Login: <input type="text" name="login">
 			Password: <input type="password" name="password">
 			<input type="submit" value="Login">
@@ -38,6 +40,8 @@ var signUpFormTmpl = []byte(`
 	</body>
 </html>
 `)
+
+var SECRET = []byte("secretkey")
 
 type User struct {
 	ID       int    `json:"id, string, omitempty"`
@@ -61,6 +65,11 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 
 //Get Single User
 func getUser(w http.ResponseWriter, r *http.Request) {
+	if !checkAutorization(w, r) {
+		// http.Redirect(w, r, "/v1/login", http.StatusSeeOther)
+		return
+	}
+
 	// w.Header().Set("Content-Type", "application/json")
 	// params := mux.Vars(r) // Get Params
 	// for _, item := range users {
@@ -204,11 +213,71 @@ func signup(w http.ResponseWriter, r *http.Request) {
 }
 
 func signin(w http.ResponseWriter, r *http.Request) {
-	w.Write(signInFormTmpl)
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var userExist bool
+	for _, val := range users {
+		if val.password == r.FormValue("password") && val.Email == r.FormValue("login") {
+			userExist = true
+			break
+		}
+	}
+
+	if !userExist {
+		http.Redirect(w, r, "/v1/signup", http.StatusSeeOther)
+		return
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"email":    r.FormValue("login"),
+		"password": r.FormValue("password"),
+	})
+
+	str, err := token.SignedString(SECRET)
+	if err != nil {
+		w.Write([]byte("=(" + err.Error()))
+		return
+	}
+
+	cookie := &http.Cookie{
+		Name:  "session_id",
+		Value: str,
+	}
+
+	http.SetCookie(w, cookie)
+	w.WriteHeader(http.StatusOK)
+}
+
+func checkAutorization(w http.ResponseWriter, r *http.Request) bool {
+	cookie, err := r.Cookie("session_id")
+	if err != nil {
+		return false
+	}
+	token, err := jwt.Parse(cookie.Value, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+
+		return SECRET, nil
+	})
+
+	if _, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		return true
+	}
+	w.WriteHeader(http.StatusUnauthorized)
+	log.Println(err)
+	return false
 }
 
 func mainPage(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("WAO team"))
+}
+
+func login(w http.ResponseWriter, r *http.Request) {
+	w.Write(signInFormTmpl)
 }
 
 func main() {
@@ -266,8 +335,9 @@ func main() {
 	v1.HandleFunc("/users/{id}", updateUser).Methods("PUT")
 	v1.HandleFunc("/users/{id}", deleteUser).Methods("DELETE")
 	v1.HandleFunc("/", mainPage)
-	v1.HandleFunc("/signup", signup).Methods("GET")
-	v1.HandleFunc("/signin", signin).Methods("GET")
+	v1.HandleFunc("/signup", signup).Methods("POST")
+	v1.HandleFunc("/signin", signin).Methods("POST")
+	v1.HandleFunc("/login", login).Methods("GET")
 
 	r.PathPrefix("/data/").Handler(http.StripPrefix("/data/", http.FileServer(http.Dir("./static/"))))
 

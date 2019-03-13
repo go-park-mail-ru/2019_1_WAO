@@ -16,7 +16,7 @@ import (
 var signInFormTmpl = []byte(`
 <html>
 	<body>
-		<form action="/" method="post">
+		<form action="/v1/" method="post">
 			Login: <input type="text" name="login">
 			Password: <input type="password" name="password">
 			<input type="submit" value="Login">
@@ -28,7 +28,7 @@ var signInFormTmpl = []byte(`
 var signUpFormTmpl = []byte(`
 <html>
 	<body>
-		<form action="/api/users" method="post" enctype="multipart/form-data">
+		<form action="/v1/users" method="post" enctype="multipart/form-data">
 			Email:<input type="text" name="email">
 			Password:<input type="password" name="password">
 			Nickname:<input type="text" name="nickname"><br>
@@ -47,7 +47,7 @@ type User struct {
 	Scope    int    `json:"scope, string, omitempty"`
 	Games    int    `json:"games, string, omitempty"`
 	Wins     int    `json:"wins, string, omitempty"`
-	Image    string `json:"nick, omitempty"`
+	Image    string `json:"image, omitempty"`
 }
 
 //Init users var as a slise User struct
@@ -154,7 +154,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 	user.Image = handler.Filename
 	users = append(users, user)
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, "/v1/", http.StatusSeeOther)
 }
 
 //Update the User
@@ -212,7 +212,6 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	r := mux.NewRouter()
 
 	// Mock Data - implement DB
 	users = append(users,
@@ -258,14 +257,17 @@ func main() {
 		},
 	)
 
-	r.HandleFunc("/api/users", getUsers).Methods("GET")
-	r.HandleFunc("/api/users/{id}", getUser).Methods("GET")
-	r.HandleFunc("/api/users", createUser).Methods("POST")
-	r.HandleFunc("/api/users/{id}", updateUser).Methods("PUT")
-	r.HandleFunc("/api/users/{id}", deleteUser).Methods("DELETE")
-	r.HandleFunc("/", mainPage)
-	r.HandleFunc("/signup", signup).Methods("GET")
-	r.HandleFunc("/signin", signin).Methods("GET")
+	r := mux.NewRouter()
+	v1 := r.PathPrefix("/v1").Subrouter()
+
+	v1.HandleFunc("/users", getUsers).Methods("GET")
+	v1.HandleFunc("/users/{id}", getUser).Methods("GET")
+	v1.HandleFunc("/users", createUser).Methods("POST")
+	v1.HandleFunc("/users/{id}", updateUser).Methods("PUT")
+	v1.HandleFunc("/users/{id}", deleteUser).Methods("DELETE")
+	v1.HandleFunc("/", mainPage)
+	v1.HandleFunc("/signup", signup).Methods("GET")
+	v1.HandleFunc("/signin", signin).Methods("GET")
 
 	r.PathPrefix("/data/").Handler(http.StripPrefix("/data/", http.FileServer(http.Dir("./static/"))))
 

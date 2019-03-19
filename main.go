@@ -70,7 +70,7 @@ func checkAuthorization(r http.Request) (bool, error) {
 		return SECRET, nil
 	})
 	if err != nil {
-		fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		log.Printf("Unexpected signing method: %v", token.Header["alg"])
 		return false, err
 	}
 
@@ -168,22 +168,22 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	if _, err := os.Stat("./static/" + dirname); os.IsNotExist(err) {
 		err = os.Mkdir("./static/"+dirname, 0400)
 		if err != nil {
-			log.Fatal(err.Error())
+			log.Println(err.Error())
 		}
 	}
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Println(err.Error())
 	}
 
 	saveFile, err := os.Create("./static/" + dirname + "/" + handler.Filename)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Println(err.Error())
 	}
 	defer saveFile.Close()
 
 	_, err = io.Copy(saveFile, file)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err.Error())
 	}
 
 	user.Image = handler.Filename
@@ -381,6 +381,6 @@ func main() {
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
-	fmt.Println("Starting server at http://127.0.0.1:8000/")
-	log.Fatal(srv.ListenAndServe())
+	log.Println("Starting server at http://127.0.0.1:8000/")
+	log.Println(srv.ListenAndServe())
 }

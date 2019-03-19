@@ -57,19 +57,43 @@ type User struct {
 //Init users var as a slise User struct
 var users []User
 
+func checkAuthorization(r http.Request) (bool, error) {
+	cookie, err := r.Cookie("session_id")
+	if err != nil {
+		return false, err
+	}
+
+	token, err := jwt.Parse(cookie.Value, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, err
+		}
+		return SECRET, nil
+	})
+	if err != nil {
+		fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		return false, err
+	}
+
+	if _, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		return true, nil
+	}
+	return false, nil
+}
+
 //Get All Users
 func getUsers(w http.ResponseWriter, r *http.Request) {
+	if ok, err := checkAuthorization(*r); !ok {
+		log.Println("Autorization checking error:", err)
+		http.Redirect(w, r, "/v1/login", http.StatusSeeOther)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(users)
+	return
 }
 
 //Get Single User
 func getUser(w http.ResponseWriter, r *http.Request) {
-	if !checkAutorization(w, r) {
-		// http.Redirect(w, r, "/v1/login", http.StatusSeeOther)
-		return
-	}
-
 	// w.Header().Set("Content-Type", "application/json")
 	// params := mux.Vars(r) // Get Params
 	// for _, item := range users {
@@ -84,9 +108,15 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	// 	}
 	// }
 	// http.Error(w, `{"error": "This user is not found}"`, http.StatusNotFound)
+
+	if ok, err := checkAuthorization(*r); !ok {
+		log.Println("Autorization checking error:", err)
+		http.Redirect(w, r, "/v1/login", http.StatusSeeOther)
+	}
+
 	w.Header().Set("Content-Type", "text/html")
 
-	params := mux.Vars(r) // Get Params
+	params := mux.Vars(r)
 	for _, item := range users {
 		userID, err := strconv.Atoi(params["id"])
 		if err != nil {
@@ -104,11 +134,6 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 
 //Create New User
 func createUser(w http.ResponseWriter, r *http.Request) {
-	log.Println("Method POST add user")
-	if r.Method != http.MethodPost {
-		w.Write(signUpFormTmpl)
-		return
-	}
 	// w.Header().Set("Content-Type", "application/json")
 	// var user User
 	// err := json.NewDecoder(r.Body).Decode(&user)
@@ -168,6 +193,11 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 //Update the User
 func updateUser(w http.ResponseWriter, r *http.Request) {
+	if ok, err := checkAuthorization(*r); !ok {
+		log.Println("Autorization checking error:", err)
+		http.Redirect(w, r, "/v1/login", http.StatusSeeOther)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
@@ -193,6 +223,11 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 
 //Delete the User
 func deleteUser(w http.ResponseWriter, r *http.Request) {
+	if ok, err := checkAuthorization(*r); !ok {
+		log.Println("Autorization checking error:", err)
+		http.Redirect(w, r, "/v1/login", http.StatusSeeOther)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 	for index, item := range users {
@@ -213,11 +248,6 @@ func signup(w http.ResponseWriter, r *http.Request) {
 }
 
 func signin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	var userExist bool
 	for _, val := range users {
 		if val.password == r.FormValue("password") && val.Email == r.FormValue("login") {
@@ -231,45 +261,30 @@ func signin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"email":    r.FormValue("login"),
-		"password": r.FormValue("password"),
+	rawToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username": r.FormValue("login"),
+		"exp":      time.Now().Add(10 * time.Minute).Unix(),
 	})
 
-	str, err := token.SignedString(SECRET)
+	token, err := rawToken.SignedString(SECRET)
 	if err != nil {
-		w.Write([]byte("=(" + err.Error()))
+		w.Write([]byte("Error: Token was not create!" + err.Error()))
 		return
 	}
 
 	cookie := &http.Cookie{
-		Name:  "session_id",
-		Value: str,
+		Name:     "session_id",
+		Value:    token,
+		Expires:  time.Now().Add(10 * time.Minute),
+		HttpOnly: true,
 	}
-
 	http.SetCookie(w, cookie)
 	w.WriteHeader(http.StatusOK)
 }
 
-func checkAutorization(w http.ResponseWriter, r *http.Request) bool {
-	cookie, err := r.Cookie("session_id")
-	if err != nil {
-		return false
-	}
-	token, err := jwt.Parse(cookie.Value, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-		}
-
-		return SECRET, nil
-	})
-
-	if _, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		return true
-	}
-	w.WriteHeader(http.StatusUnauthorized)
-	log.Println(err)
-	return false
+func redirectOnMain(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/v1/", http.StatusSeeOther)
+	return
 }
 
 func mainPage(w http.ResponseWriter, r *http.Request) {
@@ -280,8 +295,24 @@ func login(w http.ResponseWriter, r *http.Request) {
 	w.Write(signInFormTmpl)
 }
 
-func main() {
+func logout(w http.ResponseWriter, r *http.Request) {
+	_, err := r.Cookie("session_id")
+	if err != nil {
+		w.WriteHeader(http.StatusBadGateway)
+		return
+	}
 
+	expiredCookie := &http.Cookie{
+		Name:     "session_id",
+		Value:    "",
+		Expires:  time.Now().AddDate(0, -1, 0),
+		HttpOnly: true,
+	}
+	http.SetCookie(w, expiredCookie)
+	w.WriteHeader(http.StatusOK)
+}
+
+func main() {
 	// Mock Data - implement DB
 	users = append(users,
 		User{
@@ -327,6 +358,8 @@ func main() {
 	)
 
 	r := mux.NewRouter()
+	r.HandleFunc("/", redirectOnMain).Methods("GET")
+
 	v1 := r.PathPrefix("/v1").Subrouter()
 
 	v1.HandleFunc("/users", getUsers).Methods("GET")
@@ -335,9 +368,10 @@ func main() {
 	v1.HandleFunc("/users/{id}", updateUser).Methods("PUT")
 	v1.HandleFunc("/users/{id}", deleteUser).Methods("DELETE")
 	v1.HandleFunc("/", mainPage)
-	v1.HandleFunc("/signup", signup).Methods("POST")
+	v1.HandleFunc("/signup", signup).Methods("GET")
 	v1.HandleFunc("/signin", signin).Methods("POST")
 	v1.HandleFunc("/login", login).Methods("GET")
+	v1.HandleFunc("/logout", logout).Methods("GET")
 
 	r.PathPrefix("/data/").Handler(http.StripPrefix("/data/", http.FileServer(http.Dir("./static/"))))
 
@@ -347,6 +381,6 @@ func main() {
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
-	fmt.Println("Starting server at http://127.0.0.1:8000")
+	fmt.Println("Starting server at http://127.0.0.1:8000/")
 	log.Fatal(srv.ListenAndServe())
 }

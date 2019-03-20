@@ -82,10 +82,16 @@ func checkAuthorization(r http.Request) (bool, error) {
 
 //Get All Users
 func GetUsers(w http.ResponseWriter, r *http.Request) {
+	if ok, err := checkAuthorization(*r); !ok {
+		log.Println("Autorization checking error:", err)
+		http.Redirect(w, r, "/v1/login", http.StatusSeeOther)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(users)
 	// io.WriteString(w, `{"status": 500, "err": "db_error"}`)
-	w.WriteHeader(http.StatusOK)
+	// w.WriteHeader(http.StatusOK)
 }
 
 //Get Single User
@@ -308,8 +314,8 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func main() {
-	// Mock Data - implement DB
+// Mock Data - implement DB
+func MockDB() {
 	users = append(users,
 		User{
 			ID:       1,
@@ -352,6 +358,10 @@ func main() {
 			Image:    "avatar.jpg",
 		},
 	)
+}
+
+func main() {
+	MockDB()
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", redirectOnMain).Methods("GET")

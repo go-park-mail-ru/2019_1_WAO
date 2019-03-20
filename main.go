@@ -81,15 +81,11 @@ func checkAuthorization(r http.Request) (bool, error) {
 }
 
 //Get All Users
-func getUsers(w http.ResponseWriter, r *http.Request) {
-	if ok, err := checkAuthorization(*r); !ok {
-		log.Println("Autorization checking error:", err)
-		http.Redirect(w, r, "/v1/login", http.StatusSeeOther)
-	}
-
+func GetUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(users)
-	return
+	// io.WriteString(w, `{"status": 500, "err": "db_error"}`)
+	w.WriteHeader(http.StatusOK)
 }
 
 //Get Single User
@@ -263,7 +259,7 @@ func signin(w http.ResponseWriter, r *http.Request) {
 
 	rawToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"username": r.FormValue("login"),
-		"exp":      time.Now().Add(10 * time.Minute).Unix(),
+		"exp":      time.Now().Add(1 * time.Minute).Unix(),
 	})
 
 	token, err := rawToken.SignedString(SECRET)
@@ -362,7 +358,7 @@ func main() {
 
 	v1 := r.PathPrefix("/v1").Subrouter()
 
-	v1.HandleFunc("/users", getUsers).Methods("GET")
+	v1.HandleFunc("/users", GetUsers).Methods("GET")
 	v1.HandleFunc("/users/{id}", getUser).Methods("GET")
 	v1.HandleFunc("/users", createUser).Methods("POST")
 	v1.HandleFunc("/users/{id}", updateUser).Methods("PUT")

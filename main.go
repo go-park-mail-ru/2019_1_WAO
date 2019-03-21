@@ -55,7 +55,7 @@ type User struct {
 }
 
 //Init users var as a slise User struct
-var users []User
+var Users []User
 
 func checkAuthorization(r http.Request) (bool, error) {
 	cookie, err := r.Cookie("session_id")
@@ -89,17 +89,15 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(users)
-	// io.WriteString(w, `{"status": 500, "err": "db_error"}`)
-	// w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(Users)
+	w.WriteHeader(http.StatusOK)
 }
 
 //Get Single User
-func getUser(w http.ResponseWriter, r *http.Request) {
+func GetUser(w http.ResponseWriter, r *http.Request) {
 	// w.Header().Set("Content-Type", "application/json")
 	// params := mux.Vars(r) // Get Params
 	// for _, item := range users {
-
 	// 	userID, err := strconv.Atoi(params["id"])
 	// 	if err != nil {
 	// 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -114,12 +112,13 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	if ok, err := checkAuthorization(*r); !ok {
 		log.Println("Autorization checking error:", err)
 		http.Redirect(w, r, "/v1/login", http.StatusSeeOther)
+		return
 	}
 
 	w.Header().Set("Content-Type", "text/html")
 
 	params := mux.Vars(r)
-	for _, item := range users {
+	for _, item := range Users {
 		userID, err := strconv.Atoi(params["id"])
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -147,7 +146,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	// json.NewEncoder(w).Encode(user)
 
 	var user User
-	user.ID = len(users) + 1
+	user.ID = len(Users) + 1
 	user.Email = r.FormValue("email")
 	user.password = r.FormValue("password")
 	user.Nick = r.FormValue("nickname")
@@ -189,7 +188,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user.Image = handler.Filename
-	users = append(users, user)
+	Users = append(Users, user)
 	http.Redirect(w, r, "/v1/", http.StatusSeeOther)
 }
 
@@ -203,7 +202,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
-	for i, item := range users {
+	for i, item := range Users {
 		userID, err := strconv.Atoi(params["id"])
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -214,9 +213,9 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 			}
-			users[i].Email = user.Email
-			users[i].password = user.password
-			users[i].Nick = user.Nick
+			Users[i].Email = user.Email
+			Users[i].password = user.password
+			Users[i].Nick = user.Nick
 			break
 		}
 	}
@@ -232,13 +231,13 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
-	for index, item := range users {
+	for index, item := range Users {
 		userID, err := strconv.Atoi(params["id"])
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 		}
 		if item.ID == userID {
-			users = append(users[:index], users[index+1:]...)
+			Users = append(Users[:index], Users[index+1:]...)
 			break
 		}
 	}
@@ -251,7 +250,7 @@ func signup(w http.ResponseWriter, r *http.Request) {
 
 func signin(w http.ResponseWriter, r *http.Request) {
 	var userExist bool
-	for _, val := range users {
+	for _, val := range Users {
 		if val.password == r.FormValue("password") && val.Email == r.FormValue("login") {
 			userExist = true
 			break
@@ -316,7 +315,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 
 // Mock Data - implement DB
 func MockDB() {
-	users = append(users,
+	Users = append(Users,
 		User{
 			ID:       1,
 			Email:    "goshan@pochta.ru",
@@ -369,7 +368,7 @@ func main() {
 	v1 := r.PathPrefix("/v1").Subrouter()
 
 	v1.HandleFunc("/users", GetUsers).Methods("GET")
-	v1.HandleFunc("/users/{id}", getUser).Methods("GET")
+	v1.HandleFunc("/users/{id}", GetUser).Methods("GET")
 	v1.HandleFunc("/users", createUser).Methods("POST")
 	v1.HandleFunc("/users/{id}", updateUser).Methods("PUT")
 	v1.HandleFunc("/users/{id}", deleteUser).Methods("DELETE")

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-
 	"github.com/gorilla/mux"
 )
 
@@ -41,7 +40,7 @@ var signUpFormTmpl = []byte(`
 </html>
 `)
 
-var SECRET = []byte("secretkey")
+var secret = []byte("secretkey")
 
 type User struct {
 	ID       int    `json:"id, string, omitempty"`
@@ -67,7 +66,7 @@ func checkAuthorization(r http.Request) (bool, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, err
 		}
-		return SECRET, nil
+		return secret, nil
 	})
 	if err != nil {
 		log.Printf("Unexpected signing method: %v", token.Header["alg"])
@@ -134,7 +133,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 }
 
 //Create New User
-func createUser(w http.ResponseWriter, r *http.Request) {
+func CreateUser(w http.ResponseWriter, r *http.Request) {
 	// w.Header().Set("Content-Type", "application/json")
 	// var user User
 	// err := json.NewDecoder(r.Body).Decode(&user)
@@ -154,42 +153,55 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	user.Wins = 0
 	user.Games = 0
 
+	if user.Email == "" || user.password == "" {
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"error": "Invalid data"}`)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	err := r.ParseMultipartForm(5 * 1024 * 1024)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Println(err.Error())
 	}
 	file, handler, err := r.FormFile("input_file")
 	if err != nil {
 		fmt.Println(err)
-		return
-	}
-	defer file.Close()
+	} else {
+		defer file.Close()
+		if _, err := os.Stat("./static"); os.IsNotExist(err) {
+			err = os.Mkdir("./static", 0700)
+			if err != nil {
+				log.Println(err.Error())
+			}
+		}
 
-	dirname := strconv.Itoa(user.ID)
-	if _, err := os.Stat("./static/" + dirname); os.IsNotExist(err) {
-		err = os.Mkdir("./static/"+dirname, 0400)
+		dirname := strconv.Itoa(user.ID)
+		if _, err := os.Stat("./static/" + dirname); os.IsNotExist(err) {
+			err = os.Mkdir("./static/"+dirname, 0400)
+			if err != nil {
+				log.Println(err.Error())
+			}
+		}
 		if err != nil {
 			log.Println(err.Error())
 		}
-	}
-	if err != nil {
-		log.Println(err.Error())
-	}
 
-	saveFile, err := os.Create("./static/" + dirname + "/" + handler.Filename)
-	if err != nil {
-		log.Println(err.Error())
-	}
-	defer saveFile.Close()
+		saveFile, err := os.Create("./static/" + dirname + "/" + handler.Filename)
+		if err != nil {
+			log.Println(err.Error())
+		}
+		defer saveFile.Close()
 
-	_, err = io.Copy(saveFile, file)
-	if err != nil {
-		log.Println(err.Error())
-	}
+		_, err = io.Copy(saveFile, file)
+		if err != nil {
+			log.Println(err.Error())
+		}
 
-	user.Image = handler.Filename
+		user.Image = handler.Filename
+	}
 	Users = append(Users, user)
-	http.Redirect(w, r, "/v1/", http.StatusSeeOther)
+	http.Redirect(w, r, "/v1/", http.StatusOK)
 }
 
 //Update the User
@@ -267,7 +279,7 @@ func signin(w http.ResponseWriter, r *http.Request) {
 		"exp":      time.Now().Add(1 * time.Minute).Unix(),
 	})
 
-	token, err := rawToken.SignedString(SECRET)
+	token, err := rawToken.SignedString(secret)
 	if err != nil {
 		w.Write([]byte("Error: Token was not create!" + err.Error()))
 		return
@@ -369,7 +381,7 @@ func main() {
 
 	v1.HandleFunc("/users", GetUsers).Methods("GET")
 	v1.HandleFunc("/users/{id}", GetUser).Methods("GET")
-	v1.HandleFunc("/users", createUser).Methods("POST")
+	v1.HandleFunc("/users", CreateUser).Methods("POST")
 	v1.HandleFunc("/users/{id}", updateUser).Methods("PUT")
 	v1.HandleFunc("/users/{id}", deleteUser).Methods("DELETE")
 	v1.HandleFunc("/", mainPage)

@@ -10,8 +10,11 @@ import (
 	"strconv"
 	"time"
 
+	_ "github.com/DmitriyPrischep/backend-WAO/docs"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 var signInFormTmpl = []byte(`
@@ -53,6 +56,10 @@ type User struct {
 	Image    string `json:"image, omitempty"`
 }
 
+type Error struct {
+	Message string
+}
+
 //Init users var as a slise User struct
 var Users []User
 
@@ -79,7 +86,16 @@ func checkAuthorization(r http.Request) (bool, error) {
 	return false, nil
 }
 
-//Get All Users
+// ShowAccount godoc
+// @Summary Show statistic of users
+// @Description get all users
+// @Accept  json
+// @Produce  json
+// @Header 200 {object} User
+// @Failure 400 {object} Error
+// @Failure 404 {object} Error
+// @Failure 500 {object} Error
+// @Router /users [get]
 func GetUsers(w http.ResponseWriter, r *http.Request) {
 	if ok, err := checkAuthorization(*r); !ok {
 		log.Println("Autorization checking error:", err)
@@ -92,7 +108,18 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-//Get Single User
+// ShowAccount godoc
+// @Summary Show data of user
+// @Description get user by ID
+// @ID get-user-by-int
+// @Accept  json
+// @Produce  json
+// @Param id path int true "User ID"
+// @Success 200 {object} User
+// @Failure 400 {object} Error
+// @Failure 404 {object} Error
+// @Failure 500 {object} Error
+// @Router /users/{id} [get]
 func GetUser(w http.ResponseWriter, r *http.Request) {
 	// w.Header().Set("Content-Type", "application/json")
 	// params := mux.Vars(r) // Get Params
@@ -132,7 +159,17 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//Create New User
+// ShowAccount godoc
+// @Summary Add user
+// @Description Add user in DB
+// @Accept  json
+// @Produce  json
+// @Param default query string false "string default" default(A)
+// @Success 200 {object} User
+// @Failure 400 {object} Error
+// @Failure 404 {object} Error
+// @Failure 500 {object} Error
+// @Router /users [post]
 func CreateUser(w http.ResponseWriter, r *http.Request) {
 	// w.Header().Set("Content-Type", "application/json")
 	// var user User
@@ -204,7 +241,18 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/v1/", http.StatusOK)
 }
 
-//Update the User
+// ShowAccount godoc
+// @Summary Update user data
+// @Description Update user data by ID
+// @ID get-user-by-int
+// @Accept  json
+// @Produce  json
+// @Param id path int true "User ID"
+// @Success 200 {string} string	"ok"
+// @Failure 400 {object} Error
+// @Failure 404 {object} Error
+// @Failure 500 {object} Error
+// @Router /users/{id} [put]
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	if ok, err := checkAuthorization(*r); !ok {
 		log.Println("Autorization checking error:", err)
@@ -234,7 +282,18 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-//Delete the User
+// ShowAccount godoc
+// @Summary Delete data of user
+// @Description remove user by ID
+// @ID get-user-by-int
+// @Accept  json
+// @Produce  json
+// @Param id path int true "User ID"
+// @Header 200 {string} Location "/"
+// @Failure 400 {object} Error
+// @Failure 404 {object} Error
+// @Failure 500 {object} Error
+// @Router /users/{id} [delete]
 func deleteUser(w http.ResponseWriter, r *http.Request) {
 	if ok, err := checkAuthorization(*r); !ok {
 		log.Println("Autorization checking error:", err)
@@ -371,11 +430,26 @@ func MockDB() {
 	)
 }
 
+// @title Web Art Online API
+// @version 1.0
+// @description This is a game server.
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url http://www.swagger.io/support
+// @contact.email support@swagger.io
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost
+// @BasePath /api/v1
 func main() {
 	MockDB()
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", redirectOnMain).Methods("GET")
+	r.HandleFunc("/docs/", httpSwagger.WrapHandler).Methods("GET")
 
 	v1 := r.PathPrefix("/v1").Subrouter()
 

@@ -20,7 +20,7 @@ import (
 var signInFormTmpl = []byte(`
 <html>
 	<body>
-		<form action="/v1/signin" method="post">
+		<form action="/signin" method="post">
 			Login: <input type="text" name="login">
 			Password: <input type="password" name="password">
 			<input type="submit" value="Login">
@@ -32,7 +32,7 @@ var signInFormTmpl = []byte(`
 var signUpFormTmpl = []byte(`
 <html>
 	<body>
-		<form action="/v1/users" method="post" enctype="multipart/form-data">
+		<form action="/api/users" method="post" enctype="multipart/form-data">
 			Email:<input type="text" name="email">
 			Password:<input type="password" name="password">
 			Nickname:<input type="text" name="nickname"><br>
@@ -97,15 +97,14 @@ func checkAuthorization(r http.Request) (bool, error) {
 // @Failure 500 {object} Error
 // @Router /users [get]
 func GetUsers(w http.ResponseWriter, r *http.Request) {
-	if ok, err := checkAuthorization(*r); !ok {
-		log.Println("Autorization checking error:", err)
-		http.Redirect(w, r, "/v1/login", http.StatusSeeOther)
-		return
-	}
+	// if ok, err := checkAuthorization(*r); !ok {
+	// 	log.Println("Autorization checking error:", err)
+	// 	http.Redirect(w, r, "/v1/login", http.StatusSeeOther)
+	// 	return
+	// }
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Users)
-	w.WriteHeader(http.StatusOK)
 }
 
 // ShowAccount godoc
@@ -119,7 +118,7 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} Error
 // @Failure 404 {object} Error
 // @Failure 500 {object} Error
-// @Router /users/{id} [get]
+// @Router /api/users/{id} [get]
 func GetUser(w http.ResponseWriter, r *http.Request) {
 	// w.Header().Set("Content-Type", "application/json")
 	// params := mux.Vars(r) // Get Params
@@ -134,12 +133,6 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	// 	}
 	// }
 	// http.Error(w, `{"error": "This user is not found}"`, http.StatusNotFound)
-
-	if ok, err := checkAuthorization(*r); !ok {
-		log.Println("Autorization checking error:", err)
-		http.Redirect(w, r, "/v1/login", http.StatusSeeOther)
-		return
-	}
 
 	w.Header().Set("Content-Type", "text/html")
 
@@ -169,7 +162,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} Error
 // @Failure 404 {object} Error
 // @Failure 500 {object} Error
-// @Router /users [post]
+// @Router /api/users [post]
 func CreateUser(w http.ResponseWriter, r *http.Request) {
 	// w.Header().Set("Content-Type", "application/json")
 	// var user User
@@ -238,7 +231,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		user.Image = handler.Filename
 	}
 	Users = append(Users, user)
-	http.Redirect(w, r, "/v1/", http.StatusOK)
+	http.Redirect(w, r, "/", http.StatusOK)
 }
 
 // ShowAccount godoc
@@ -252,13 +245,8 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} Error
 // @Failure 404 {object} Error
 // @Failure 500 {object} Error
-// @Router /users/{id} [put]
+// @Router /api/users/{id} [put]
 func updateUser(w http.ResponseWriter, r *http.Request) {
-	if ok, err := checkAuthorization(*r); !ok {
-		log.Println("Autorization checking error:", err)
-		http.Redirect(w, r, "/v1/login", http.StatusSeeOther)
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
@@ -295,11 +283,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} Error
 // @Router /users/{id} [delete]
 func deleteUser(w http.ResponseWriter, r *http.Request) {
-	if ok, err := checkAuthorization(*r); !ok {
-		log.Println("Autorization checking error:", err)
-		http.Redirect(w, r, "/v1/login", http.StatusSeeOther)
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 	for index, item := range Users {
@@ -329,7 +312,7 @@ func signin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !userExist {
-		http.Redirect(w, r, "/v1/signup", http.StatusSeeOther)
+		http.Redirect(w, r, "/signup", http.StatusSeeOther)
 		return
 	}
 
@@ -355,7 +338,7 @@ func signin(w http.ResponseWriter, r *http.Request) {
 }
 
 func redirectOnMain(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/v1/", http.StatusSeeOther)
+	http.Redirect(w, r, "/api/", http.StatusSeeOther)
 	return
 }
 
@@ -430,44 +413,65 @@ func MockDB() {
 	)
 }
 
+func RequireAuthentication(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if ok, err := checkAuthorization(*r); !ok {
+			log.Println(err.Error())
+			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			return
+		}
+		fmt.Println("Аутентификация прошла успешно, направляем запрос следующему обработчику")
+		next.ServeHTTP(w, r)
+		return
+	})
+}
+
 // @title Web Art Online API
 // @version 1.0
 // @description This is a game server.
 // @termsOfService http://swagger.io/terms/
-
 // @contact.name API Support
 // @contact.url http://www.swagger.io/support
 // @contact.email support@swagger.io
-
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
-
 // @host localhost
-// @BasePath /api/v1
+// @BasePath /api/
 func main() {
 	MockDB()
 
-	r := mux.NewRouter()
-	r.HandleFunc("/", redirectOnMain).Methods("GET")
-	r.HandleFunc("/docs/", httpSwagger.WrapHandler).Methods("GET")
+	actionMux := mux.NewRouter()
 
-	v1 := r.PathPrefix("/v1").Subrouter()
+	apiV1 := actionMux.PathPrefix("/api").Subrouter()
+	apiV1.HandleFunc("/users", GetUsers).Methods("GET")
+	apiV1.HandleFunc("/users/{id}", GetUser).Methods("GET")
+	apiV1.HandleFunc("/users", CreateUser).Methods("POST")
+	apiV1.HandleFunc("/users/{id}", updateUser).Methods("PUT")
+	apiV1.HandleFunc("/users/{id}", deleteUser).Methods("DELETE")
+	apiV1.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Ппссс, парень! Такой страницы не существует!"))
+	})
 
-	v1.HandleFunc("/users", GetUsers).Methods("GET")
-	v1.HandleFunc("/users/{id}", GetUser).Methods("GET")
-	v1.HandleFunc("/users", CreateUser).Methods("POST")
-	v1.HandleFunc("/users/{id}", updateUser).Methods("PUT")
-	v1.HandleFunc("/users/{id}", deleteUser).Methods("DELETE")
-	v1.HandleFunc("/", mainPage)
-	v1.HandleFunc("/signup", signup).Methods("GET")
-	v1.HandleFunc("/signin", signin).Methods("POST")
-	v1.HandleFunc("/login", login).Methods("GET")
-	v1.HandleFunc("/logout", logout).Methods("GET")
+	apiV1.Use(RequireAuthentication)
 
-	r.PathPrefix("/data/").Handler(http.StripPrefix("/data/", http.FileServer(http.Dir("./static/"))))
+	siteMux := http.NewServeMux()
+	siteMux.Handle("/api/", apiV1)
+	siteMux.HandleFunc("/docs/", httpSwagger.WrapHandler)
+	siteMux.HandleFunc("/", mainPage)
+	siteMux.HandleFunc("/signup", signup)
+	siteMux.HandleFunc("/signin", signin)
+	siteMux.HandleFunc("/login", login)
+	siteMux.HandleFunc("/logout", logout)
+
+	staticHandler := http.StripPrefix(
+		"/data/",
+		http.FileServer(http.Dir("./static")),
+	)
+	siteMux.Handle("/data/", staticHandler)
 
 	srv := &http.Server{
-		Handler:      r,
+		Handler:      siteMux,
 		Addr:         "127.0.0.1:8000",
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,

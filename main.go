@@ -297,6 +297,15 @@ func signup(w http.ResponseWriter, r *http.Request) {
 }
 
 func signin(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/signin" {
+		errorHandler(w, r, http.StatusNotFound)
+		return
+	}
+	if r.Method != http.MethodPost {
+		errorHandler(w, r, http.StatusNotFound)
+		return
+	}
+
 	var userExist bool
 	for _, val := range Users {
 		if val.password == r.FormValue("password") && val.Email == r.FormValue("login") {
@@ -345,9 +354,18 @@ func login(w http.ResponseWriter, r *http.Request) {
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/logout" {
+		errorHandler(w, r, http.StatusNotFound)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		errorHandler(w, r, http.StatusBadRequest)
+		return
+	}
 	_, err := r.Cookie("session_id")
 	if err != nil {
-		w.WriteHeader(http.StatusBadGateway)
+		errorHandler(w, r, http.StatusBadRequest)
 		return
 	}
 
@@ -359,6 +377,13 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, expiredCookie)
 	w.WriteHeader(http.StatusOK)
+}
+func errorHandler(w http.ResponseWriter, r *http.Request, code int) {
+	if code == http.StatusNotFound {
+		http.NotFound(w, r)
+		return
+	}
+	http.Error(w, "", code)
 }
 
 func checkSession(w http.ResponseWriter, r *http.Request) {
@@ -480,6 +505,7 @@ func main() {
 	siteMux.HandleFunc("/signin", signin)
 	siteMux.HandleFunc("/login", login)
 	siteMux.HandleFunc("/logout", logout)
+	siteMux.Handle("/favicon.ico", http.NotFoundHandler())
 
 	staticHandler := http.StripPrefix(
 		"/data/",

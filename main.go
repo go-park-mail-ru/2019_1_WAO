@@ -63,10 +63,10 @@ type Error struct {
 //Init users var as a slise User struct
 var Users []User
 
-func checkAuthorization(r http.Request) (bool, error) {
+func checkAuthorization(r http.Request) (jwt.MapClaims, bool, error) {
 	cookie, err := r.Cookie("session_id")
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
 
 	token, err := jwt.Parse(cookie.Value, func(token *jwt.Token) (interface{}, error) {
@@ -77,13 +77,13 @@ func checkAuthorization(r http.Request) (bool, error) {
 	})
 	if err != nil {
 		log.Printf("Unexpected signing method: %v", token.Header["alg"])
-		return false, err
+		return nil, false, err
 	}
 
-	if _, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		return true, nil
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		return claims, true, nil
 	}
-	return false, nil
+	return nil, false, nil
 }
 
 // ShowAccount godoc
@@ -97,12 +97,6 @@ func checkAuthorization(r http.Request) (bool, error) {
 // @Failure 500 {object} Error
 // @Router /users [get]
 func GetUsers(w http.ResponseWriter, r *http.Request) {
-	// if ok, err := checkAuthorization(*r); !ok {
-	// 	log.Println("Autorization checking error:", err)
-	// 	http.Redirect(w, r, "/v1/login", http.StatusSeeOther)
-	// 	return
-	// }
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Users)
 }
@@ -367,6 +361,28 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func checkSession(w http.ResponseWriter, r *http.Request) {
+	claims, ok, err := checkAuthorization(*r)
+	if !ok {
+		log.Println("Autorization checking error:", err)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	email, ok := claims["username"]
+	if !ok {
+		log.Println("Bad claims: field 'username' not exist")
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	for _, item := range Users {
+		if item.Email == email {
+			json.NewEncoder(w).Encode(item)
+			return
+		}
+	}
+}
+
 // Mock Data - implement DB
 func MockDB() {
 	Users = append(Users,
@@ -415,12 +431,11 @@ func MockDB() {
 
 func RequireAuthentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if ok, err := checkAuthorization(*r); !ok {
+		if _, ok, err := checkAuthorization(*r); !ok {
 			log.Println(err.Error())
 			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 			return
 		}
-		fmt.Println("Аутентификация прошла успешно, направляем запрос следующему обработчику")
 		next.ServeHTTP(w, r)
 		return
 	})
@@ -448,6 +463,8 @@ func main() {
 	apiV1.HandleFunc("/users", CreateUser).Methods("POST")
 	apiV1.HandleFunc("/users/{id}", updateUser).Methods("PUT")
 	apiV1.HandleFunc("/users/{id}", deleteUser).Methods("DELETE")
+	apiV1.HandleFunc("/session", checkSession).Methods("GET")
+	apiV1.HandleFunc("/session", logout).Methods("DELETE")
 	apiV1.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("Ппссс, парень! Такой страницы не существует!"))

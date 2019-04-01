@@ -454,7 +454,7 @@ func MockDB() {
 	)
 }
 
-func RequireAuthentication(next http.Handler) http.Handler {
+func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok, err := checkAuthorization(*r); !ok {
 			log.Println(err.Error())
@@ -463,6 +463,29 @@ func RequireAuthentication(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 		return
+	})
+}
+
+func accessLogMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("accessLogMiddleware", r.URL.Path)
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		fmt.Printf("[%s] %s, %s %s\n",
+			r.Method, r.RemoteAddr, r.URL.Path, time.Since(start))
+	})
+}
+
+func panicMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("panicMiddleware", r.URL.Path)
+		defer func() {
+			if err := recover(); err != nil {
+				log.Println("recovered", err)
+				http.Error(w, "Internal server error", 500)
+			}
+		}()
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -495,7 +518,7 @@ func main() {
 		w.Write([]byte("Ппссс, парень! Такой страницы не существует!"))
 	})
 
-	apiV1.Use(RequireAuthentication)
+	apiV1.Use(authMiddleware)
 
 	siteMux := http.NewServeMux()
 	siteMux.Handle("/api/", apiV1)
@@ -513,8 +536,11 @@ func main() {
 	)
 	siteMux.Handle("/data/", staticHandler)
 
+	siteHandler := accessLogMiddleware(siteMux)
+	siteHandler = panicMiddleware(siteHandler)
+
 	srv := &http.Server{
-		Handler:      siteMux,
+		Handler:      siteHandler,
 		Addr:         "127.0.0.1:8000",
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,

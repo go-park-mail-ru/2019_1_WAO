@@ -132,11 +132,8 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 
 	params := mux.Vars(r)
 	for _, item := range Users {
-		userID, err := strconv.Atoi(params["id"])
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusNotFound)
-		}
-		if item.ID == userID {
+		userLogin := params["login"]
+		if item.Nick == userLogin {
 			w.Write([]byte("Player profile "))
 			w.Write([]byte(item.Nick + "<br>"))
 			urlImage := fmt.Sprintf(`<img src="/data/%d/%s"/>`, item.ID, item.Image)
@@ -144,6 +141,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	w.WriteHeader(http.StatusBadRequest)
 }
 
 // ShowAccount godoc
@@ -244,12 +242,14 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
+	userLogin := params["login"]
+	if userLogin == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
 	for i, item := range Users {
-		userID, err := strconv.Atoi(params["id"])
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusNotFound)
-		}
-		if item.ID == userID {
+		if item.Nick == userLogin {
 			var user User
 			err := json.NewDecoder(r.Body).Decode(&user)
 			if err != nil {
@@ -280,11 +280,12 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 	for index, item := range Users {
-		userID, err := strconv.Atoi(params["id"])
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusNotFound)
+		userLogin := params["login"]
+		if userLogin == "" {
+			w.WriteHeader(http.StatusNotFound)
+			return
 		}
-		if item.ID == userID {
+		if item.Nick == userLogin {
 			Users = append(Users[:index], Users[index+1:]...)
 			break
 		}
@@ -507,10 +508,10 @@ func main() {
 
 	apiV1 := actionMux.PathPrefix("/api").Subrouter()
 	apiV1.HandleFunc("/users", GetUsers).Methods("GET")
-	apiV1.HandleFunc("/users/{id}", GetUser).Methods("GET")
+	apiV1.HandleFunc("/users/{login}", GetUser).Methods("GET")
 	apiV1.HandleFunc("/users", CreateUser).Methods("POST")
-	apiV1.HandleFunc("/users/{id}", updateUser).Methods("PUT")
-	apiV1.HandleFunc("/users/{id}", deleteUser).Methods("DELETE")
+	apiV1.HandleFunc("/users/{login}", updateUser).Methods("PUT")
+	apiV1.HandleFunc("/users/{login}", deleteUser).Methods("DELETE")
 	apiV1.HandleFunc("/session", checkSession).Methods("GET")
 	apiV1.HandleFunc("/session", logout).Methods("DELETE")
 	apiV1.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

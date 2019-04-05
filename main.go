@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,39 +12,12 @@ import (
 	"time"
 
 	_ "github.com/DmitriyPrischep/backend-WAO/docs"
+	_ "github.com/lib/pq"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
-
-var signInFormTmpl = []byte(`
-<html>
-	<body>
-		<form action="/signin" method="post">
-			Login: <input type="text" name="login">
-			Password: <input type="password" name="password">
-			<input type="submit" value="Login">
-		</form>
-	</body>
-</html>
-`)
-
-var signUpFormTmpl = []byte(`
-<html>
-	<body>
-		<form action="/api/users" method="post" enctype="multipart/form-data">
-			Email:<input type="text" name="email">
-			Password:<input type="password" name="password">
-			Nickname:<input type="text" name="nickname"><br>
-			Avatar: <input type="file" name="input_file">
-			<input type="submit" value="Register">
-		</form>
-	</body>
-</html>
-`)
-
-var secret = []byte("secretkey")
 
 type User struct {
 	ID       int    `json:"id, string, omitempty"`
@@ -60,8 +34,8 @@ type Error struct {
 	Message string
 }
 
-//Init users var as a slise User struct
-var Users []User
+var secret = []byte("secretkey")
+var db *sql.DB
 
 func checkAuthorization(r http.Request) (jwt.MapClaims, bool, error) {
 	cookie, err := r.Cookie("session_id")
@@ -97,8 +71,27 @@ func checkAuthorization(r http.Request) (jwt.MapClaims, bool, error) {
 // @Failure 500 {object} Error
 // @Router /users [get]
 func GetUsers(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query("SELECT id, email, nickname, scope, games, wins, image FROM users")
+	if err != nil {
+		log.Println("Method GetUsers:", err)
+	}
+	defer rows.Close()
+	users := []User{}
+
+	for rows.Next() {
+		user := User{}
+		err := rows.Scan(&user.ID, &user.Email, &user.Nick, &user.Scope, &user.Games, &user.Wins, &user.Image)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		if user.Image != "" {
+			user.Image = fmt.Sprintf(`/data/%d/%s`, user.ID, user.Image)
+		}
+		users = append(users, user)
+	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Users)
+	json.NewEncoder(w).Encode(users)
 }
 
 // ShowAccount godoc
@@ -114,34 +107,28 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} Error
 // @Router /api/users/{id} [get]
 func GetUser(w http.ResponseWriter, r *http.Request) {
-	// w.Header().Set("Content-Type", "application/json")
-	// params := mux.Vars(r) // Get Params
-	// for _, item := range users {
-	// 	userID, err := strconv.Atoi(params["id"])
-	// 	if err != nil {
-	// 		http.Error(w, err.Error(), http.StatusNotFound)
-	// 	}
-	// 	if item.ID == userID {
-	// 		json.NewEncoder(w).Encode(item)
-	// 		return
-	// 	}
-	// }
-	// http.Error(w, `{"error": "This user is not found}"`, http.StatusNotFound)
-
-	w.Header().Set("Content-Type", "text/html")
-
+	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
-	for _, item := range Users {
-		userLogin := params["login"]
-		if item.Nick == userLogin {
-			w.Write([]byte("Player profile "))
-			w.Write([]byte(item.Nick + "<br>"))
-			urlImage := fmt.Sprintf(`<img src="/data/%d/%s"/>`, item.ID, item.Image)
-			w.Write([]byte(urlImage))
-			return
+
+	row := db.QueryRow(`SELECT id, email, nickname, scope, games, wins, image 
+						FROM users WHERE nickname = $1`, params["login"])
+
+	user := User{}
+
+	switch err := row.Scan(&user.ID, &user.Email, &user.Nick, &user.Scope,
+		&user.Games, &user.Wins, &user.Image); err {
+	case sql.ErrNoRows:
+		log.Println("Method GetUser: No rows were returned!")
+	case nil:
+		if user.Image != "" {
+			user.Image = fmt.Sprintf(`/data/%d/%s`, user.ID, user.Image)
 		}
+		json.NewEncoder(w).Encode(user)
+		return
+	default:
+		log.Println("Method GetUser: ", err)
 	}
-	w.WriteHeader(http.StatusBadRequest)
+	http.Error(w, `{"error": "This user is not found}"`, http.StatusNotFound)
 }
 
 // ShowAccount godoc
@@ -156,24 +143,14 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} Error
 // @Router /api/users [post]
 func CreateUser(w http.ResponseWriter, r *http.Request) {
-	// w.Header().Set("Content-Type", "application/json")
-	// var user User
-	// err := json.NewDecoder(r.Body).Decode(&user)
-	// if err != nil {
-	// 	http.Error(w, err.Error(), http.StatusBadRequest)
-	// }
-	// user.ID = len(users)
-	// users = append(users, user)
-	// json.NewEncoder(w).Encode(user)
-
+	w.Header().Set("Content-Type", "application/json")
 	var user User
-	user.ID = len(Users) + 1
-	user.Email = r.FormValue("email")
-	user.password = r.FormValue("password")
-	user.Nick = r.FormValue("nickname")
-	user.Scope = 0
-	user.Wins = 0
-	user.Games = 0
+	err := json.NewDecoder(r.Body).Decode(&user)
+	if err != nil {
+		log.Printf("Decode error: ", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	if user.Email == "" || user.password == "" {
 		w.Header().Set("Content-Type", "application/json")
@@ -182,6 +159,22 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	id := 0
+	err = db.QueryRow(`INSERT INTO users (email, nickname, password, scope, games, wins, image)
+		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+		user.Email, user.Nick, user.password, 0, 0, 0, "").Scan(&id)
+	if err != nil {
+		log.Printf("Error inserting record: ", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	fmt.Println("New record ID is:", id)
+	user.ID = id
+	json.NewEncoder(w).Encode(user)
+
+}
+
+func uploadAvatar(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseMultipartForm(5 * 1024 * 1024)
 	if err != nil {
 		log.Println(err.Error())
@@ -198,6 +191,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		user := User{}
 		dirname := strconv.Itoa(user.ID)
 		if _, err := os.Stat("./static/" + dirname); os.IsNotExist(err) {
 			err = os.Mkdir("./static/"+dirname, 0400)
@@ -219,11 +213,8 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println(err.Error())
 		}
-
 		user.Image = handler.Filename
 	}
-	Users = append(Users, user)
-	http.Redirect(w, r, "/", http.StatusOK)
 }
 
 // ShowAccount godoc
@@ -248,19 +239,17 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for i, item := range Users {
-		if item.Nick == userLogin {
-			var user User
-			err := json.NewDecoder(r.Body).Decode(&user)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-			}
-			Users[i].Email = user.Email
-			Users[i].password = user.password
-			Users[i].Nick = user.Nick
-			break
-		}
+	user := User{}
+	err := db.QueryRow(`UPDATE users
+		SET email = $1, nickname = $2
+		WHERE nickname = $2 RETURNING id, email, nickname, scope, games, wins, image;`,
+		"new_email", "new_nick").Scan(user.ID, user.Email, user.Nick, user.Scope, user.Games, user.Wins, user.Image)
+	if err != nil {
+		log.Println("Error updating record:", err)
+		w.WriteHeader(http.StatusNotImplemented)
+		return
 	}
+	json.NewEncoder(w).Encode(user)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -279,22 +268,15 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 func deleteUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
-	for index, item := range Users {
-		userLogin := params["login"]
-		if userLogin == "" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		if item.Nick == userLogin {
-			Users = append(Users[:index], Users[index+1:]...)
-			break
-		}
+
+	_, err := db.Exec(`DELETE FROM users
+	WHERE id = $1;`, params["login"])
+	if err != nil {
+		log.Println("Error deleting record:", err)
+		w.WriteHeader(http.StatusNotImplemented)
+		return
 	}
 	w.WriteHeader(http.StatusOK)
-}
-
-func signup(w http.ResponseWriter, r *http.Request) {
-	w.Write(signUpFormTmpl)
 }
 
 func signin(w http.ResponseWriter, r *http.Request) {
@@ -307,38 +289,42 @@ func signin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userExist bool
-	for _, val := range Users {
-		if val.password == r.FormValue("password") && val.Email == r.FormValue("login") {
-			userExist = true
-			break
+	w.Header().Set("Content-Type", "application/json")
+	row := db.QueryRow(`SELECT email, nickname, password 
+						FROM users WHERE nickname = $1 AND password = $2`, r.FormValue("login"), r.FormValue("password"))
+
+	user := User{}
+
+	switch err := row.Scan(&user.Email, &user.Nick, &user.password); err {
+	case sql.ErrNoRows:
+		log.Println("No rows were returned!")
+		http.Error(w, `{"error": "Invalid login or password"}`, http.StatusBadRequest)
+		return
+	case nil:
+		rawToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"username": r.FormValue("login"),
+			"exp":      time.Now().Add(1 * time.Minute).Unix(),
+		})
+
+		token, err := rawToken.SignedString(secret)
+		if err != nil {
+			w.Write([]byte("Error: Token was not create!" + err.Error()))
+			return
 		}
-	}
 
-	if !userExist {
-		http.Redirect(w, r, "/signup", http.StatusSeeOther)
+		cookie := &http.Cookie{
+			Name:     "session_id",
+			Value:    token,
+			Expires:  time.Now().Add(10 * time.Minute),
+			HttpOnly: true,
+		}
+		http.SetCookie(w, cookie)
+		w.Write([]byte("You are authorized! Welcome!"))
 		return
+	default:
+		log.Println("Method GetUser: ", err)
+		w.WriteHeader(http.StatusBadRequest)
 	}
-
-	rawToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"username": r.FormValue("login"),
-		"exp":      time.Now().Add(1 * time.Minute).Unix(),
-	})
-
-	token, err := rawToken.SignedString(secret)
-	if err != nil {
-		w.Write([]byte("Error: Token was not create!" + err.Error()))
-		return
-	}
-
-	cookie := &http.Cookie{
-		Name:     "session_id",
-		Value:    token,
-		Expires:  time.Now().Add(10 * time.Minute),
-		HttpOnly: true,
-	}
-	http.SetCookie(w, cookie)
-	w.WriteHeader(http.StatusOK)
 }
 
 func redirectOnMain(w http.ResponseWriter, r *http.Request) {
@@ -348,10 +334,6 @@ func redirectOnMain(w http.ResponseWriter, r *http.Request) {
 
 func mainPage(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("WAO team"))
-}
-
-func login(w http.ResponseWriter, r *http.Request) {
-	w.Write(signInFormTmpl)
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
@@ -395,81 +377,32 @@ func checkSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email, ok := claims["username"]
+	_, ok = claims["username"]
 	if !ok {
 		log.Println("Bad claims: field 'username' not exist")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	for _, item := range Users {
-		if item.Email == email {
-			json.NewEncoder(w).Encode(item)
-			return
-		}
-	}
-}
-
-// Mock Data - implement DB
-func MockDB() {
-	Users = append(Users,
-		User{
-			ID:       1,
-			Email:    "goshan@pochta.ru",
-			password: "12345",
-			Nick:     "karlik",
-			Scope:    119,
-			Games:    5,
-			Wins:     1,
-			Image:    "avatar.jpg",
-		},
-		User{
-			ID:       2,
-			Email:    "pashok@pochta.ru",
-			password: "12345",
-			Nick:     "joker",
-			Scope:    200,
-			Games:    1,
-			Wins:     3,
-			Image:    "avatar.jpg",
-		},
-		User{
-			ID:       3,
-			Email:    "karman@pochta.ru",
-			password: "12345",
-			Nick:     "gopher",
-			Scope:    88,
-			Games:    8,
-			Wins:     0,
-			Image:    "avatar.jpg",
-		},
-		User{
-			ID:       4,
-			Email:    "support@pochta.ru",
-			password: "12345",
-			Nick:     "Batman",
-			Scope:    13,
-			Games:    11,
-			Wins:     0,
-			Image:    "avatar.jpg",
-		},
-	)
 }
 
 func authMiddleware(next http.Handler) http.Handler {
+	log.Println("Something")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok, err := checkAuthorization(*r); !ok {
 			log.Println(err.Error())
-			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			w.WriteHeader(http.StatusUnauthorized)
+			// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 			return
 		}
+		log.Println("Complete check auth")
 		next.ServeHTTP(w, r)
 		return
 	})
 }
 
-func accessLogMiddleware(next http.Handler) http.Handler {
+func logMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println("accessLogMiddleware", r.URL.Path)
+		log.Println("logMiddleware", r.URL.Path)
 		start := time.Now()
 		next.ServeHTTP(w, r)
 		fmt.Printf("[%s] %s, %s %s\n",
@@ -490,6 +423,15 @@ func panicMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func init() {
+	connStr := "user=postgres password=123456 dbname=waogame sslmode=disable"
+	var err error
+	db, err = sql.Open("postgres", connStr)
+	if err != nil {
+		log.Printf("No connection to DB: %v", err)
+	}
+}
+
 // @title Web Art Online API
 // @version 1.0
 // @description This is a game server.
@@ -502,7 +444,7 @@ func panicMiddleware(next http.Handler) http.Handler {
 // @host localhost
 // @BasePath /api/
 func main() {
-	MockDB()
+	defer db.Close()
 
 	actionMux := mux.NewRouter()
 
@@ -525,10 +467,14 @@ func main() {
 	siteMux.Handle("/api/", apiV1)
 	siteMux.HandleFunc("/docs/", httpSwagger.WrapHandler)
 	siteMux.HandleFunc("/", mainPage)
-	siteMux.HandleFunc("/signup", signup)
 	siteMux.HandleFunc("/signin", signin)
-	siteMux.HandleFunc("/login", login)
 	siteMux.HandleFunc("/logout", logout)
+
+	siteMux.HandleFunc("/gets", GetUsers)
+	siteMux.HandleFunc("/get", GetUser)
+	siteMux.HandleFunc("/add", CreateUser)
+	siteMux.HandleFunc("/del", deleteUser)
+
 	siteMux.Handle("/favicon.ico", http.NotFoundHandler())
 
 	staticHandler := http.StripPrefix(
@@ -537,7 +483,7 @@ func main() {
 	)
 	siteMux.Handle("/data/", staticHandler)
 
-	siteHandler := accessLogMiddleware(siteMux)
+	siteHandler := logMiddleware(siteMux)
 	siteHandler = panicMiddleware(siteHandler)
 
 	srv := &http.Server{

@@ -9,8 +9,9 @@ import (
 type Player struct {
 	connection *websocket.Conn
 	ID         string
-	in         chan *Message
+	in         chan *IncomeMessage
 	out        chan *Message
+	room       *Room
 }
 
 func NewPlayer(conn *websocket.Conn, id string) *Player {

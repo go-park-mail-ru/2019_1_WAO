@@ -6,15 +6,17 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
-	"strconv"
+	// "os"
+	// "strconv"
 	"time"
+	"io/ioutil"
 
-	_ "github.com/DmitriyPrischep/backend-WAO/docs"
+	// _ "github.com/DmitriyPrischep/backend-WAO/docs"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger"
+	"github.com/gorilla/handlers"
 )
 
 var signInFormTmpl = []byte(`
@@ -144,6 +146,12 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusBadRequest)
 }
 
+type SignupData struct {
+	Nick string `json:"nickname,omitempty"`
+	Email string `json:"email,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
 // ShowAccount godoc
 // @Summary Add user
 // @Description Add user in DB
@@ -168,9 +176,20 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	var user User
 	user.ID = len(Users) + 1
-	user.Email = r.FormValue("email")
-	user.password = r.FormValue("password")
-	user.Nick = r.FormValue("nickname")
+	// user.Email = r.FormValue("email") // так не распарсит
+	// user.password = r.FormValue("password")
+	// user.Nick = r.FormValue("nickname")
+	body, err := ioutil.ReadAll(r.Body)
+	fmt.Println(body)
+	defer r.Body.Close()
+	signupData := &SignupData{}
+	err = json.Unmarshal(body, &signupData)
+	fmt.Println(signupData)
+	fmt.Println(err)
+
+	user.Email = signupData.Email
+	user.password = signupData.Password
+	user.Nick = signupData.Nick
 	user.Scope = 0
 	user.Wins = 0
 	user.Games = 0
@@ -182,7 +201,10 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := r.ParseMultipartForm(5 * 1024 * 1024)
+	// при создании пользователя картинка не загружается
+	// а выставляется дефолтная
+	/* 
+	err = r.ParseMultipartForm(5 * 1024 * 1024) // err :=
 	if err != nil {
 		log.Println(err.Error())
 	}
@@ -222,8 +244,22 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 
 		user.Image = handler.Filename
 	}
+	*/
 	Users = append(Users, user)
-	http.Redirect(w, r, "/", http.StatusOK)
+	// http.Redirect(w, r, "/", http.StatusOK)
+	rawToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username": user.Nick,
+		"exp":      time.Now().Add(1 * time.Minute).Unix(),
+	})
+	token, err := rawToken.SignedString(secret)
+	cookie := &http.Cookie{
+		Name:     "session_id",
+		Value:    token,
+		Expires:  time.Now().Add(10 * time.Minute),
+		HttpOnly: true,
+	}
+	http.SetCookie(w, cookie)
+	w.WriteHeader(http.StatusOK)
 }
 
 // ShowAccount godoc
@@ -316,7 +352,8 @@ func signin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !userExist {
-		http.Redirect(w, r, "/signup", http.StatusSeeOther)
+		// http.Redirect(w, r, "/signup", http.StatusSeeOther) // все редиректы на фронте
+		w.WriteHeader(http.StatusSeeOther)
 		return
 	}
 
@@ -415,7 +452,7 @@ func MockDB() {
 		User{
 			ID:       1,
 			Email:    "goshan@pochta.ru",
-			password: "12345",
+			password: "123456",
 			Nick:     "karlik",
 			Scope:    119,
 			Games:    5,
@@ -425,7 +462,7 @@ func MockDB() {
 		User{
 			ID:       2,
 			Email:    "pashok@pochta.ru",
-			password: "12345",
+			password: "123456",
 			Nick:     "joker",
 			Scope:    200,
 			Games:    1,
@@ -435,7 +472,7 @@ func MockDB() {
 		User{
 			ID:       3,
 			Email:    "karman@pochta.ru",
-			password: "12345",
+			password: "123456",
 			Nick:     "gopher",
 			Scope:    88,
 			Games:    8,
@@ -445,7 +482,7 @@ func MockDB() {
 		User{
 			ID:       4,
 			Email:    "support@pochta.ru",
-			password: "12345",
+			password: "123456",
 			Nick:     "Batman",
 			Scope:    13,
 			Games:    11,
@@ -459,7 +496,8 @@ func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok, err := checkAuthorization(*r); !ok {
 			log.Println(err.Error())
-			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect) // все редиректы на фронте
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -514,18 +552,20 @@ func main() {
 	apiV1.HandleFunc("/users/{login}", deleteUser).Methods("DELETE")
 	apiV1.HandleFunc("/session", checkSession).Methods("GET")
 	apiV1.HandleFunc("/session", logout).Methods("DELETE")
+	apiV1.HandleFunc("/signup", CreateUser)
 	apiV1.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("Ппссс, парень! Такой страницы не существует!"))
 	})
 
-	apiV1.Use(authMiddleware)
+	// apiV1.Use(authMiddleware)
 
 	siteMux := http.NewServeMux()
 	siteMux.Handle("/api/", apiV1)
 	siteMux.HandleFunc("/docs/", httpSwagger.WrapHandler)
 	siteMux.HandleFunc("/", mainPage)
-	siteMux.HandleFunc("/signup", signup)
+	// siteMux.HandleFunc("/signup", signup)
+	// siteMux.HandleFunc("/signup", CreateUser)
 	siteMux.HandleFunc("/signin", signin)
 	siteMux.HandleFunc("/login", login)
 	siteMux.HandleFunc("/logout", logout)
@@ -540,12 +580,23 @@ func main() {
 	siteHandler := accessLogMiddleware(siteMux)
 	siteHandler = panicMiddleware(siteHandler)
 
+	/*
 	srv := &http.Server{
 		Handler:      siteHandler,
-		Addr:         "127.0.0.1:8000",
+		Addr:         "127.0.0.1",
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
+	*/
+
+	// CORS
+	// frontAdr := "https://wao2019.herokuapp.com/"
+	frontAdr := "http://127.0.0.1:3000"
+	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Origin"})
+	originsOk := handlers.AllowedOrigins([]string{frontAdr})
+	crendenOk := handlers.AllowCredentials()
+	methodsOk := handlers.AllowedMethods([]string{"GET", "DELETE", "POST", "PUT", "OPTIONS"})
+
 	log.Println("Starting server at http://127.0.0.1:8000/")
-	log.Println(srv.ListenAndServe())
+	log.Println(http.ListenAndServe(":8000", handlers.CORS(originsOk, crendenOk, headersOk, methodsOk)(actionMux)))
 }

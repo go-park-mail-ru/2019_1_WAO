@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>Page Title</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <!-- <script src='main.js'></script> -->
+</head>
+<body>
+    <input type="text" name="input" id="input"><br>
+    <button id="click" onclick="sendMessage();">Click</button><br>
+    <h2>Hello World</h2>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
+    <script>
+      var socket = io('ws://127.0.0.1:8080', {transports: ['websocket']});
+
+// listen for messages
+socket.on('chat message', function(message) {
+
+    alert('new message');
+    alert(message);
+});
+
+socket.on('connect', function () {
+
+    console.log('socket connected');
+});
+
+function sendMessage() {
+    socket.emit('right', '{"a": 1, "b": 2}');
+}
+    </script>
+</body>
+</html>

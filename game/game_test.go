@@ -39,3 +39,17 @@ func TestGameLoop(t *testing.T) {
 // 		fmt.Println(math.Sin(float64(i)))
 // 	}
 // }
+
+func TestFieldGenerator(t *testing.T) {
+	var player *Player
+	player = FieldGenerator(100, 100, 20)
+	players = append(players, player)
+	for _, value := range blocks {
+		fmt.Println(*value)
+	}
+	fmt.Println("Players:")
+	for _, plr := range players {
+		fmt.Println(*plr)
+	}
+
+}

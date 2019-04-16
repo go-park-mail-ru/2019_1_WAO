@@ -377,12 +377,14 @@ func checkSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, ok = claims["username"]
+	nick, ok := claims["username"]
 	if !ok {
 		log.Println("Bad claims: field 'username' not exist")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(fmt.Sprintf(`[{"nickname": "%v"}]`, nick)))
 }
 
 func authMiddleware(next http.Handler) http.Handler {
@@ -470,10 +472,20 @@ func main() {
 	siteMux.HandleFunc("/signin", signin)
 	siteMux.HandleFunc("/logout", logout)
 
-	siteMux.HandleFunc("/gets", GetUsers)
-	siteMux.HandleFunc("/get", GetUser)
-	siteMux.HandleFunc("/add", CreateUser)
-	siteMux.HandleFunc("/del", deleteUser)
+	siteMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		var loginFormTmpl = []byte(`
+		<html>
+			<body>
+			<form action="/signin" method="post">
+				Login: <input type="text" name="login">
+				Password: <input type="password" name="password">
+				<input type="submit" value="Login">
+			</form>
+			</body>
+		</html>
+		`)
+		w.Write(loginFormTmpl)
+	})
 
 	siteMux.Handle("/favicon.ico", http.NotFoundHandler())
 

@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 )
@@ -10,7 +11,8 @@ var players []*Player
 func FieldGenerator(w int, h int, jumpLength float32) (player *Player) {
 	r := rand.New(rand.NewSource(99))
 	currentY := float32(h - 20)
-	for i := 0; i < 10; i++ {
+	fmt.Printf("Iterations: %d\n", ((h-20)-20)/10)
+	for i := 0; i < ((h-20)-20)/10; i++ {
 		currentX := float32(r.Intn(w-21) + 21)
 		if i == 0 {
 			player = &Player{currentX + 10, currentY - 5, 0, 0, 10, 10}

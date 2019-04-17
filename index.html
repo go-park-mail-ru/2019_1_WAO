@@ -9,27 +9,45 @@
 </head>
 <body>
     <input type="text" name="input" id="input"><br>
-    <button id="click" onclick="sendMessage();">Click</button><br>
+    <button id="click" onclick="start();">Start</button><br>
+    <button id="click" onclick="stop();">Click</button>
+    <button id="click" onclick="sendMessage();">Send</button><br>
     <h2>Hello World</h2>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
     <script>
-      var socket = io('ws://127.0.0.1:8080', {transports: ['websocket']});
+//       var socket = io('ws://127.0.0.1:8080/move', {transports: ['websocket']});
 
-// listen for messages
-socket.on('chat message', function(message) {
+// // listen for messages
+// socket.on('chat message', function(message) {
 
-    alert('new message');
-    alert(message);
-});
+//     alert('new message');
+//     alert(message);
+// });
 
-socket.on('connect', function () {
+// socket.on('connect', function () {
 
-    console.log('socket connected');
-});
+//     console.log('socket connected');
+// });
 
+// function sendMessage() {
+//     socket.emit('right', '{"a": 1, "b": 2}');
+// }
+var socket = new WebSocket("ws://127.0.0.1:8080/move");
+function stop() {
+    
+}
+socket.onopen = () => {
+    alert("Соединение установлено!");
+}
+socket.onclose = () => {
+    alert("Соединение оборвалось");
+}
+socket.onmessage = (event) => {
+    alert(event.data);
+}
 function sendMessage() {
-    socket.emit('right', '{"a": 1, "b": 2}');
+    socket.send("LEFT");    
 }
     </script>
 </body>

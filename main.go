@@ -147,7 +147,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	var user User
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
-		log.Printf("Decode error: ", err)
+		log.Printf("Decode error: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -164,7 +164,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
 		user.Email, user.Nick, user.password, 0, 0, 0, "").Scan(&id)
 	if err != nil {
-		log.Printf("Error inserting record: ", err)
+		log.Printf("Error inserting record: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}

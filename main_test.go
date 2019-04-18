@@ -18,7 +18,7 @@ import (
 // 		User{
 // 			ID:       1,
 // 			Email:    "goshan@pochta.ru",
-// 			password: "12345",
+// 			password: "12d345",
 // 			Nick:     "karlik",
 // 			Scope:    119,
 // 			Games:    5,
@@ -91,8 +91,8 @@ func TestGetUsers(t *testing.T) {
 }
 
 type TestCaseUser struct {
-	id         string
-	email      string
+	nickname   string
+	password   string
 	response   string
 	statusCode int
 }
@@ -100,49 +100,28 @@ type TestCaseUser struct {
 func TestGetUser(t *testing.T) {
 	cases := []TestCaseUser{
 		TestCaseUser{
-			id:         "2",
-			email:      "pashok@pochta.ru",
-			response:   "Player profile joker<br><img src=\"/data/2/avatar.jpg\"/>",
+			nickname:   "joker",
+			password:   "12345",
+			response:   `{"id":3,"email":"pashok@pochta.ru","nick":"joker","scope":200,"games":11,"wins":3,"image":"/data/3/avatar.jpg"}` + "\n",
 			statusCode: http.StatusOK,
 		},
 		TestCaseUser{
-			id:         "1",
-			email:      "goshan@pochta.ru",
-			response:   "<a href=\"/v1/login\">See Other</a>.\n\n",
-			statusCode: http.StatusSeeOther,
+			nickname:   "___undefined_nick",
+			password:   "qwerty",
+			response:   `{"error": "This user is not found"}` + "\n",
+			statusCode: http.StatusNotFound,
 		},
 	}
 
 	for caseNum, item := range cases {
-		rawToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"username": item.email,
-			"exp":      time.Now().Add(1 * time.Minute).Unix(),
-		})
-		secret = nil
-		secret = []byte("test_secret")
-
-		token, err := rawToken.SignedString(secret)
-		if caseNum == 1 {
-			token, err = rawToken.SignedString([]byte("fooo"))
-		}
-		if err != nil {
-			log.Println([]byte("Error: Token was not create!" + err.Error()))
-		}
-
-		url := "http://test.go/api/users/id-" + item.id
+		url := "http://test.go/api/users/id-" + item.nickname
 		req := httptest.NewRequest("GET", url, nil)
-		cookie := &http.Cookie{
-			Name:     "session_id",
-			Value:    token,
-			HttpOnly: true,
-		}
-		req.Header.Add("X-Requested-With", "XMLHttpRequest")
-		req.AddCookie(cookie)
 		w := httptest.NewRecorder()
 
 		//Hack to try to fake gorilla/mux vars
 		vars := map[string]string{
-			"id": item.id,
+			"login":    item.nickname,
+			"password": item.password,
 		}
 		req = mux.SetURLVars(req, vars)
 
@@ -173,18 +152,20 @@ func TestCreateUser(t *testing.T) {
 	cases := []NewUser{
 		NewUser{
 			response:   "",
-			statusCode: http.StatusOK,
+			statusCode: http.StatusBadRequest,
 			player: User{
 				Email:    "qwerty@test.go",
 				password: "12345",
+				Nick:     "mynick",
 			},
 		},
 		NewUser{
-			response:   `{"error": "Invalid data"}`,
-			statusCode: http.StatusOK,
+			response:   "",
+			statusCode: http.StatusBadRequest,
 			player: User{
 				Email:    "",
 				password: "",
+				Nick:     "",
 			},
 		},
 	}
@@ -195,6 +176,7 @@ func TestCreateUser(t *testing.T) {
 		form := url.Values{}
 		form.Add("email", item.player.Email)
 		form.Add("password", item.player.password)
+		form.Add("nickname", item.player.Nick)
 
 		req := httptest.NewRequest("POST", urlString, nil)
 		req.Form = form
@@ -263,5 +245,135 @@ func TestcheckAuthorization(t *testing.T) {
 		// 	t.Errorf("[%d] wrong StatusCode: got %v, expected %v",
 		// 		caseNum, status, item.status)
 		// }
+	}
+}
+
+type OldUser struct {
+	response   string
+	statusCode int
+	player     User
+}
+
+func TestdeleteUser(t *testing.T) {
+	cases := []OldUser{
+		OldUser{
+			response:   "",
+			statusCode: http.StatusBadRequest,
+			player: User{
+				Nick: "joker",
+			},
+		},
+		OldUser{
+			response:   "",
+			statusCode: http.StatusNotImplemented,
+			player: User{
+				Nick: "notor",
+			},
+		},
+	}
+
+	for caseNum, item := range cases {
+		url := "http://test.go/api/users/id-" + item.player.Nick
+
+		req := httptest.NewRequest("DELETE", url, nil)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		w := httptest.NewRecorder()
+
+		deleteUser(w, req)
+
+		if w.Code != item.statusCode {
+			t.Errorf("[%d] wrong StatusCode: got %d, expected %d",
+				caseNum, w.Code, item.statusCode)
+		}
+
+		resp := w.Result()
+		body, _ := ioutil.ReadAll(resp.Body)
+
+		bodyStr := string(body[:])
+		if bodyStr != item.response {
+			t.Errorf("[%d] wrong Response: got %+v, expected %+v",
+				caseNum, bodyStr, item.response)
+		}
+	}
+}
+
+func TestupdateUser(t *testing.T) {
+	cases := []OldUser{
+		OldUser{
+			response:   "",
+			statusCode: http.StatusBadRequest,
+			player: User{
+				Nick: "joker",
+			},
+		},
+	}
+
+	for caseNum, item := range cases {
+		url := "http://test.go/api/users/id-" + item.player.Nick
+
+		req := httptest.NewRequest("DELETE", url, nil)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		w := httptest.NewRecorder()
+
+		updateUser(w, req)
+
+		if w.Code != item.statusCode {
+			t.Errorf("[%d] wrong StatusCode: got %d, expected %d",
+				caseNum, w.Code, item.statusCode)
+		}
+
+		resp := w.Result()
+		body, _ := ioutil.ReadAll(resp.Body)
+
+		bodyStr := string(body[:])
+		if bodyStr != item.response {
+			t.Errorf("[%d] wrong Response: got %+v, expected %+v",
+				caseNum, bodyStr, item.response)
+		}
+	}
+}
+
+type Session struct {
+	response   string
+	statusCode int
+	session    string
+	nickname   string
+}
+
+func TestcheckSession(t *testing.T) {
+	cases := []Session{
+		Session{
+			response:   "",
+			statusCode: http.StatusBadRequest,
+			nickname: "joker",
+			session: "token"
+		},
+	}
+
+	for caseNum, item := range cases {
+		url := "http://test.go/api/users/id-" + item.player.Nick
+
+		req := httptest.NewRequest("DELETE", url, nil)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		w := httptest.NewRecorder()
+
+		updateUser(w, req)
+
+		if w.Code != item.statusCode {
+			t.Errorf("[%d] wrong StatusCode: got %d, expected %d",
+				caseNum, w.Code, item.statusCode)
+		}
+
+		resp := w.Result()
+		body, _ := ioutil.ReadAll(resp.Body)
+
+		bodyStr := string(body[:])
+		if bodyStr != item.response {
+			t.Errorf("[%d] wrong Response: got %+v, expected %+v",
+				caseNum, bodyStr, item.response)
+		}
 	}
 }

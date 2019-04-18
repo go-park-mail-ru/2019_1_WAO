@@ -11,7 +11,3 @@ type IncomeMessage struct {
 	Type    string          `json"type"`
 	Payload json.RawMessage `json"payload,omitempty"`
 }
-
-type AuthResponce struct {
-	nickname string
-}

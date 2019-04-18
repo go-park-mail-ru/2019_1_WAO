@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net"
 
 	"github.com/gorilla/websocket"
 )
@@ -28,8 +29,12 @@ func (p *Player) Listen() {
 		for {
 			message := &IncomeMessage{}
 			err := p.connection.ReadJSON(message)
-			_, ok := err.(*websocket.CloseError)
-			log.Println(ok)
+			if _, ok := err.(*net.OpError); ok {
+				log.Println("My Life is a pain")
+				p.room.RemovePlayer(p)
+				log.Printf("Player %s disconnected", p.ID)
+				return
+			}
 
 			if websocket.IsUnexpectedCloseError(err) {
 				p.room.RemovePlayer(p)

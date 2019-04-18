@@ -7,8 +7,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
-	"strconv"
 	"time"
 
 	_ "github.com/DmitriyPrischep/backend-WAO/docs"
@@ -128,7 +126,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	default:
 		log.Println("Method GetUser: ", err)
 	}
-	http.Error(w, `{"error": "This user is not found}"`, http.StatusNotFound)
+	http.Error(w, `{"error": "This user is not found"}`, http.StatusNotFound)
 }
 
 // ShowAccount godoc
@@ -172,49 +170,6 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	user.ID = id
 	json.NewEncoder(w).Encode(user)
 
-}
-
-func uploadAvatar(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseMultipartForm(5 * 1024 * 1024)
-	if err != nil {
-		log.Println(err.Error())
-	}
-	file, handler, err := r.FormFile("input_file")
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		defer file.Close()
-		if _, err := os.Stat("./static"); os.IsNotExist(err) {
-			err = os.Mkdir("./static", 0700)
-			if err != nil {
-				log.Println(err.Error())
-			}
-		}
-
-		user := User{}
-		dirname := strconv.Itoa(user.ID)
-		if _, err := os.Stat("./static/" + dirname); os.IsNotExist(err) {
-			err = os.Mkdir("./static/"+dirname, 0400)
-			if err != nil {
-				log.Println(err.Error())
-			}
-		}
-		if err != nil {
-			log.Println(err.Error())
-		}
-
-		saveFile, err := os.Create("./static/" + dirname + "/" + handler.Filename)
-		if err != nil {
-			log.Println(err.Error())
-		}
-		defer saveFile.Close()
-
-		_, err = io.Copy(saveFile, file)
-		if err != nil {
-			log.Println(err.Error())
-		}
-		user.Image = handler.Filename
-	}
 }
 
 // ShowAccount godoc
@@ -325,11 +280,6 @@ func signin(w http.ResponseWriter, r *http.Request) {
 		log.Println("Method GetUser: ", err)
 		w.WriteHeader(http.StatusBadRequest)
 	}
-}
-
-func redirectOnMain(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/api/", http.StatusSeeOther)
-	return
 }
 
 func mainPage(w http.ResponseWriter, r *http.Request) {
@@ -471,21 +421,6 @@ func main() {
 	siteMux.HandleFunc("/", mainPage)
 	siteMux.HandleFunc("/signin", signin)
 	siteMux.HandleFunc("/logout", logout)
-
-	siteMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		var loginFormTmpl = []byte(`
-		<html>
-			<body>
-			<form action="/signin" method="post">
-				Login: <input type="text" name="login">
-				Password: <input type="password" name="password">
-				<input type="submit" value="Login">
-			</form>
-			</body>
-		</html>
-		`)
-		w.Write(loginFormTmpl)
-	})
 
 	siteMux.Handle("/favicon.ico", http.NotFoundHandler())
 

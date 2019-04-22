@@ -21,7 +21,7 @@ func TestGameLoop(t *testing.T) {
 			go func(pl *Player) {
 				defer wgr.Done()
 				if pl.CheckCollision(block) {
-					pl.y = block.y - 1
+					pl.Y = block.Y - 1
 					pl.vy = -15
 					fmt.Println("Collision was occured")
 				}
@@ -30,15 +30,9 @@ func TestGameLoop(t *testing.T) {
 		wgr.Wait()
 	}
 	for index, player := range players {
-		fmt.Printf("player %x, x: %f, y: %f\n", index+1, player.x, player.y)
+		fmt.Printf("player %x, x: %f, y: %f\n", index+1, player.X, player.Y)
 	}
 }
-
-// func TestSin(t *testing.T) {
-// 	for i := 0.0; i < 10; i += 0.1 {
-// 		fmt.Println(math.Sin(float64(i)))
-// 	}
-// }
 
 func TestFieldGenerator(t *testing.T) {
 	var player *Player

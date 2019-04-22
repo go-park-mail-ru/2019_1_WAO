@@ -15,8 +15,8 @@ type Point struct {
 }
 
 type Player struct {
-	x  float32
-	y  float32
+	X  float32 `json:"x"`
+	Y  float32 `json:"y"`
 	vx float32
 	vy float32
 	w  float32
@@ -24,9 +24,9 @@ type Player struct {
 }
 
 func (player *Player) Move(vector Vector) {
-	player.x += vector.x
-	player.y += vector.y
-	fmt.Printf("x: %f, y: %f\n", player.x, player.y)
+	player.X += vector.x
+	player.Y += vector.y
+	fmt.Printf("x: %f, y: %f\n", player.X, player.Y)
 }
 
 func CheckPointCollision(playerPoint, blockUpPoint, blockDownPoint Point) bool {
@@ -40,12 +40,12 @@ func CheckPointCollision(playerPoint, blockUpPoint, blockDownPoint Point) bool {
 // func (player *Player) CheckCollision(block Block) bool {
 // 	var playerPoints []Point
 
-// 	playerPoints = append(playerPoints, Point{player.x, player.y}, Point{player.x + player.w, player.y},
-// 		Point{player.x, player.y + player.h}, Point{player.x + player.w, player.y + player.h})
+// 	playerPoints = append(playerPoints, Point{player.X, player.Y}, Point{player.X + player.w, player.Y},
+// 		Point{player.X, player.Y + player.h}, Point{player.X + player.w, player.Y + player.h})
 // 	// We will check collisions between the block and each player's point
 // 	isCollision := false
-// 	blockUpPoint := Point{block.x, block.y}
-// 	blockDownPoint := Point{block.x + block.w, block.y + block.h}
+// 	blockUpPoint := Point{block.X, block.Y}
+// 	blockDownPoint := Point{block.X + block.w, block.Y + block.h}
 // 	for _, point := range playerPoints {
 // 		if CheckPointCollision(point, blockUpPoint, blockDownPoint) {
 // 			isCollision = true
@@ -58,11 +58,11 @@ func CheckPointCollision(playerPoint, blockUpPoint, blockDownPoint Point) bool {
 func (player *Player) CheckCollision(block Block) bool {
 	var playerPoints []Point
 
-	playerPoints = append(playerPoints, Point{player.x, player.y + player.h}, Point{player.x + player.w, player.y + player.h})
+	playerPoints = append(playerPoints, Point{player.X, player.Y + player.h}, Point{player.X + player.w, player.Y + player.h})
 	// We will check collisions between the block and each player's point
 	isCollision := false
-	blockUpPoint := Point{block.x, block.y}
-	blockDownPoint := Point{block.x + block.w, block.y + block.h}
+	blockUpPoint := Point{block.X, block.Y}
+	blockDownPoint := Point{block.X + block.w, block.Y + block.h}
 	for _, point := range playerPoints {
 		if CheckPointCollision(point, blockUpPoint, blockDownPoint) {
 			isCollision = true
@@ -75,5 +75,5 @@ func (player *Player) CheckCollision(block Block) bool {
 func (player *Player) Gravity(g float32) {
 	player.vy += g
 	// player.Move(Vector{0, player.vy})
-	// fmt.Printf("x: %f, y: %f\n", player.x, player.y)
+	// fmt.Printf("x: %f, y: %f\n", player.X, player.Y)
 }

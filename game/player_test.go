@@ -24,9 +24,9 @@ func TestMove(t *testing.T) {
 	for _, pair := range moves {
 		player := Player{10, 10, 0, 0, 10, 10}
 		player.Move(pair.vector)
-		if player.x != pair.expectedX || player.y != pair.expectedY {
+		if player.X != pair.expectedX || player.Y != pair.expectedY {
 			t.Error("Expected x:", pair.expectedX, "y:", pair.expectedY,
-				"but got x:", player.x, "y:", player.y)
+				"but got x:", player.X, "y:", player.Y)
 		}
 	}
 
@@ -54,8 +54,8 @@ func TestCheckCollision(t *testing.T) {
 		result := player.CheckCollision(pair.block)
 		if result != pair.expected {
 			t.Error("Expected", pair.expected,
-				"for x:", pair.block.x,
-				"y:", pair.block.y,
+				"for x:", pair.block.X,
+				"y:", pair.block.Y,
 				"w:", pair.block.w,
 				"h:", pair.block.h,
 				"but got:", result)
@@ -63,12 +63,24 @@ func TestCheckCollision(t *testing.T) {
 	}
 }
 
-// func TestGravity(t *testing.T) {
-// 	player := Player{10, 10, 0, 0}
-// 	for i := 0; i < 20; i++ {
-// 		timer1 := time.NewTimer(time.Second / 8)
-// 		<-timer1.C
-// 		fmt.Print(i+1, " sec:	")
-// 		Gravity(&player, 9.81)
-// 	}
-// }
+type GravityPlayer struct {
+	player   Player
+	g        float32
+	expected float32
+}
+
+var GravityPlayers = []GravityPlayer{
+	{Player{10, 10, 0, 0, 0, 0}, 9.81, 9.81},
+	{Player{10, 10, 0, 5, 0, 0}, 9.81, 14.81},
+	{Player{10, 10, 0, 0, 0, 0}, 15, 15},
+}
+
+func TestGravity(t *testing.T) {
+	for _, test := range GravityPlayers {
+		test.player.Gravity(test.g)
+		if test.player.vy != test.expected {
+			t.Error("Expected", test.expected,
+				"but got:", test.player.vy)
+		}
+	}
+}

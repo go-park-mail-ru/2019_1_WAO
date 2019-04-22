@@ -1,8 +1,8 @@
 package game
 
 type Block struct {
-	x float32
-	y float32
+	X float32 `json:"x"`
+	Y float32 `json:"y"`
 	w float32
 	h float32
 }

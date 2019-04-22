@@ -347,8 +347,8 @@ func TestcheckSession(t *testing.T) {
 		Session{
 			response:   "",
 			statusCode: http.StatusBadRequest,
-			nickname: "joker",
-			session: "token"
+			nickname:   "joker",
+			session:    "token",
 		},
 	}
 

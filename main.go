@@ -258,7 +258,7 @@ func signin(w http.ResponseWriter, r *http.Request) {
 	case nil:
 		rawToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 			"username": r.FormValue("login"),
-			"exp":      time.Now().Add(1 * time.Minute).Unix(),
+			"exp":      time.Now().Add(10 * time.Minute).Unix(),
 		})
 
 		token, err := rawToken.SignedString(secret)
@@ -338,15 +338,16 @@ func checkSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func authMiddleware(next http.Handler) http.Handler {
-	log.Println("Something")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("authMiddleware", r.URL.Path)
+		cookie, _ := r.Cookie("session_id")
+		log.Println("Token:", cookie)
+
 		if _, ok, err := checkAuthorization(*r); !ok {
-			log.Println(err.Error())
 			w.WriteHeader(http.StatusUnauthorized)
-			// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			log.Println(err.Error())
 			return
 		}
-		log.Println("Complete check auth")
 		next.ServeHTTP(w, r)
 		return
 	})
@@ -372,6 +373,29 @@ func panicMiddleware(next http.Handler) http.Handler {
 			}
 		}()
 		next.ServeHTTP(w, r)
+	})
+}
+
+func CORSMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("CORSMiddleware", r.URL.Path)
+		if origin := r.Header.Get("Origin"); origin == frontAddres {
+			w.Header().Set("Access-Control-Allow-Origin", frontAddres)
+			w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+			w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With, Content-Type, Origin")
+			w.Header().Set("Access-Control-Max-Age", "600")
+			return
+		} else {
+			next.ServeHTTP(w, r)
+		}
+		// handlerCORS := handlers.LoggingHandler(os.Stdout, handlers.CORS(
+		// 	handlers.AllowedOrigins([]string{frontAddres}),
+		// 	handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Origin"}),
+		// 	handlers.AllowedMethods([]string{"GET", "DELETE", "POST", "PUT", "OPTIONS"}),
+		// 	handlers.AllowCredentials(),
+		// 	handlers.MaxAge(1000),
+		// )(next))
+		// return handlerCORS
 	})
 }
 
@@ -408,19 +432,39 @@ func main() {
 	apiV1.HandleFunc("/users/{login}", deleteUser).Methods("DELETE")
 	apiV1.HandleFunc("/session", checkSession).Methods("GET")
 	apiV1.HandleFunc("/session", logout).Methods("DELETE")
+	apiV1.HandleFunc("/docs/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("DOCUMENTATION"))
+	}).Methods("GET")
 	apiV1.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("Ппссс, парень! Такой страницы не существует!"))
 	})
 
-	apiV1.Use(authMiddleware)
+	apiV1.Use(authMiddleware, CORSMiddleware)
 
 	siteMux := http.NewServeMux()
 	siteMux.Handle("/api/", apiV1)
-	siteMux.HandleFunc("/docs/", httpSwagger.WrapHandler)
+	siteMux.HandleFunc("/api/docs/", httpSwagger.WrapHandler)
 	siteMux.HandleFunc("/", mainPage)
 	siteMux.HandleFunc("/signin", signin)
 	siteMux.HandleFunc("/logout", logout)
+	siteMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		var loginFormTmpl = []byte(`
+		<html>
+			<body>
+			<form action="/signin" method="post">
+				Login: <input type="text" name="login">
+				Password: <input type="password" name="password">
+				<input type="submit" value="Login">
+			</form>
+			</body>
+		</html>
+		`)
+		w.Write(loginFormTmpl)
+	})
+	siteMux.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Мы команда DREAM TEAM"))
+	})
 
 	siteMux.Handle("/favicon.ico", http.NotFoundHandler())
 
@@ -435,7 +479,7 @@ func main() {
 
 	srv := &http.Server{
 		Handler:      siteHandler,
-		Addr:         "127.0.0.1:8000",
+		Addr:         hostname,
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}

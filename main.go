@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"time"
+	"io"
 
 	_ "github.com/DmitriyPrischep/backend-WAO/docs"
 	_ "github.com/lib/pq"
@@ -320,6 +320,14 @@ func errorHandler(w http.ResponseWriter, r *http.Request, code int) {
 }
 
 func checkSession(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/session" {
+		errorHandler(w, r, http.StatusNotFound)
+		return
+	}
+	if r.Method != http.MethodGet {
+		errorHandler(w, r, http.StatusNotFound)
+		return
+	}
 	claims, ok, err := checkAuthorization(*r)
 	if !ok {
 		log.Println("Autorization checking error:", err)
@@ -349,7 +357,6 @@ func authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		next.ServeHTTP(w, r)
-		return
 	})
 }
 
@@ -369,7 +376,7 @@ func panicMiddleware(next http.Handler) http.Handler {
 		defer func() {
 			if err := recover(); err != nil {
 				log.Println("recovered", err)
-				http.Error(w, "Internal server error", 500)
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
 			}
 		}()
 		next.ServeHTTP(w, r)
@@ -383,19 +390,12 @@ func CORSMiddleware(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Origin", frontAddres)
 			w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 			w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With, Content-Type, Origin")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Max-Age", "600")
 			return
 		} else {
 			next.ServeHTTP(w, r)
 		}
-		// handlerCORS := handlers.LoggingHandler(os.Stdout, handlers.CORS(
-		// 	handlers.AllowedOrigins([]string{frontAddres}),
-		// 	handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Origin"}),
-		// 	handlers.AllowedMethods([]string{"GET", "DELETE", "POST", "PUT", "OPTIONS"}),
-		// 	handlers.AllowCredentials(),
-		// 	handlers.MaxAge(1000),
-		// )(next))
-		// return handlerCORS
 	})
 }
 
@@ -423,45 +423,26 @@ func main() {
 	defer db.Close()
 
 	actionMux := mux.NewRouter()
-
 	apiV1 := actionMux.PathPrefix("/api").Subrouter()
-	apiV1.HandleFunc("/users", GetUsers).Methods("GET")
-	apiV1.HandleFunc("/users/{login}", GetUser).Methods("GET")
-	apiV1.HandleFunc("/users", CreateUser).Methods("POST")
-	apiV1.HandleFunc("/users/{login}", updateUser).Methods("PUT")
-	apiV1.HandleFunc("/users/{login}", deleteUser).Methods("DELETE")
-	apiV1.HandleFunc("/session", checkSession).Methods("GET")
-	apiV1.HandleFunc("/session", logout).Methods("DELETE")
-	apiV1.HandleFunc("/docs/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("DOCUMENTATION"))
-	}).Methods("GET")
-	apiV1.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Ппссс, парень! Такой страницы не существует!"))
-	})
 
-	apiV1.Use(authMiddleware, CORSMiddleware)
+	apiV1.HandleFunc("/users", GetUsers).Methods("GET")
+	apiV1.HandleFunc("/users", CreateUser).Methods("POST")
+	apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(GetUser))).Methods("GET")
+	apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(updateUser))).Methods("PUT")
+	apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(deleteUser))).Methods("DELETE")
+	apiV1.Handle("/session", authMiddleware(http.HandlerFunc(logout))).Methods("DELETE")
+	apiV1.HandleFunc("/session", checkSession).Methods("GET")
+	apiV1.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
 
 	siteMux := http.NewServeMux()
 	siteMux.Handle("/api/", apiV1)
 	siteMux.HandleFunc("/api/docs/", httpSwagger.WrapHandler)
 	siteMux.HandleFunc("/", mainPage)
 	siteMux.HandleFunc("/signin", signin)
-	siteMux.HandleFunc("/logout", logout)
-	siteMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		var loginFormTmpl = []byte(`
-		<html>
-			<body>
-			<form action="/signin" method="post">
-				Login: <input type="text" name="login">
-				Password: <input type="password" name="password">
-				<input type="submit" value="Login">
-			</form>
-			</body>
-		</html>
-		`)
-		w.Write(loginFormTmpl)
-	})
+	siteMux.HandleFunc("/signout", logout)
+
 	siteMux.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Мы команда DREAM TEAM"))
 	})
@@ -474,7 +455,8 @@ func main() {
 	)
 	siteMux.Handle("/data/", staticHandler)
 
-	siteHandler := logMiddleware(siteMux)
+	siteHandler := CORSMiddleware(siteMux)
+	siteHandler = logMiddleware(siteHandler)
 	siteHandler = panicMiddleware(siteHandler)
 
 	srv := &http.Server{

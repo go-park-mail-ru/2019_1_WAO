@@ -21,8 +21,8 @@ type User struct {
 	ID       int    `json:"id, string, omitempty"`
 	Email    string `json:"email, omitempty"`
 	password string `json:"password, omitempty"`
-	Nick     string `json:"nick, omitempty"`
-	Scope    int    `json:"scope, string, omitempty"`
+	Nick     string `json:"nickname, omitempty"`
+	Score    int    `json:"score, string, omitempty"`
 	Games    int    `json:"games, string, omitempty"`
 	Wins     int    `json:"wins, string, omitempty"`
 	Image    string `json:"image, omitempty"`
@@ -78,7 +78,7 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 
 	for rows.Next() {
 		user := User{}
-		err := rows.Scan(&user.ID, &user.Email, &user.Nick, &user.Scope, &user.Games, &user.Wins, &user.Image)
+		err := rows.Scan(&user.ID, &user.Email, &user.Nick, &user.Score, &user.Games, &user.Wins, &user.Image)
 		if err != nil {
 			log.Println(err)
 			continue
@@ -113,7 +113,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 
 	user := User{}
 
-	switch err := row.Scan(&user.ID, &user.Email, &user.Nick, &user.Scope,
+	switch err := row.Scan(&user.ID, &user.Email, &user.Nick, &user.Score,
 		&user.Games, &user.Wins, &user.Image); err {
 	case sql.ErrNoRows:
 		log.Println("Method GetUser: No rows were returned!")
@@ -158,7 +158,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := 0
-	err = db.QueryRow(`INSERT INTO users (email, nickname, password, scope, games, wins, image)
+	err = db.QueryRow(`INSERT INTO users (email, nickname, password, score, games, wins, image)
 		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
 		user.Email, user.Nick, user.password, 0, 0, 0, "").Scan(&id)
 	if err != nil {
@@ -198,7 +198,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	err := db.QueryRow(`UPDATE users
 		SET email = $1, nickname = $2
 		WHERE nickname = $2 RETURNING id, email, nickname, scope, games, wins, image;`,
-		"new_email", "new_nick").Scan(user.ID, user.Email, user.Nick, user.Scope, user.Games, user.Wins, user.Image)
+		"new_email", "new_nick").Scan(user.ID, user.Email, user.Nick, user.Score, user.Games, user.Wins, user.Image)
 	if err != nil {
 		log.Println("Error updating record:", err)
 		w.WriteHeader(http.StatusNotImplemented)

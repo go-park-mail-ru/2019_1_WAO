@@ -4,10 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
-	"io"
 
 	_ "github.com/DmitriyPrischep/backend-WAO/docs"
 	_ "github.com/lib/pq"
@@ -16,6 +17,12 @@ import (
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
+
+type UserRegister struct {
+	Email    string `json:"email, omitempty"`
+	Password string `json:"password, omitempty"`
+	Nickname string `json:"nickname, omitempty"`
+}
 
 type User struct {
 	ID       int    `json:"id, string, omitempty"`
@@ -26,6 +33,11 @@ type User struct {
 	Games    int    `json:"games, string, omitempty"`
 	Wins     int    `json:"wins, string, omitempty"`
 	Image    string `json:"image, omitempty"`
+}
+
+type signinUser struct {
+	Nickname string `json:"nickname, omitempty"`
+	Password string `json:"password, omitempty"`
 }
 
 type Error struct {
@@ -69,7 +81,11 @@ func checkAuthorization(r http.Request) (jwt.MapClaims, bool, error) {
 // @Failure 500 {object} Error
 // @Router /users [get]
 func GetUsers(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT id, email, nickname, scope, games, wins, image FROM users")
+	if r.Method == http.MethodOptions {
+		return
+	}
+
+	rows, err := db.Query("SELECT id, email, nickname, scope, games, wins, image FROM users ORDER by scope DESC;")
 	if err != nil {
 		log.Println("Method GetUsers:", err)
 	}
@@ -89,7 +105,11 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 		users = append(users, user)
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"users":`))
 	json.NewEncoder(w).Encode(users)
+	w.Write([]byte(`}`))
+	// w.Write([]byte(`{"Limit":"2", "Offset":"4"}`))
+
 }
 
 // ShowAccount godoc
@@ -105,11 +125,14 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} Error
 // @Router /api/users/{id} [get]
 func GetUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
 	row := db.QueryRow(`SELECT id, email, nickname, scope, games, wins, image 
-						FROM users WHERE nickname = $1`, params["login"])
+						FROM users WHERE nickname = $1;`, params["login"])
 
 	user := User{}
 
@@ -129,6 +152,20 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, `{"error": "This user is not found"}`, http.StatusNotFound)
 }
 
+func generateToken(nickname string) (token string, err error) {
+	rawToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username": nickname,
+		"exp":      time.Now().Add(10 * time.Minute).Unix(),
+	})
+
+	tokenString, err := rawToken.SignedString(secret)
+	if err != nil {
+		// w.Write([]byte("Error: Token was not create!" + err.Error()))
+		return "", err
+	}
+	return tokenString, nil
+}
+
 // ShowAccount godoc
 // @Summary Add user
 // @Description Add user in DB
@@ -141,8 +178,11 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} Error
 // @Router /api/users [post]
 func CreateUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
-	var user User
+	var user UserRegister
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		log.Printf("Decode error: %v", err)
@@ -150,26 +190,38 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.Email == "" || user.password == "" {
+	if user.Email == "" || user.Nickname == "" || user.Password == "" {
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"error": "Invalid data"}`)
+		io.WriteString(w, `{"error": "Uncorrect email or nickname or password"}`)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	id := 0
-	err = db.QueryRow(`INSERT INTO users (email, nickname, password, score, games, wins, image)
-		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-		user.Email, user.Nick, user.password, 0, 0, 0, "").Scan(&id)
+	var nickname string
+	err = db.QueryRow(`INSERT INTO users (email, nickname, password, scope, games, wins, image)
+		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING nickname`,
+		user.Email, user.Nickname, user.Password, 0, 0, 0, "").Scan(&nickname)
 	if err != nil {
 		log.Printf("Error inserting record: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	fmt.Println("New record ID is:", id)
-	user.ID = id
-	json.NewEncoder(w).Encode(user)
+	fmt.Println("New record NICK is:", nickname)
 
+	token, err := generateToken(nickname)
+	if err != nil {
+		log.Println("Token error:", err.Error())
+		w.Write([]byte(`{"error": "Token was not create!"}`))
+		return
+	}
+
+	cookie := &http.Cookie{
+		Name:     "session_id",
+		Value:    token,
+		Expires:  time.Now().Add(10 * time.Minute),
+		HttpOnly: true,
+	}
+	http.SetCookie(w, cookie)
 }
 
 // ShowAccount godoc
@@ -185,6 +237,10 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} Error
 // @Router /api/users/{id} [put]
 func updateUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
@@ -221,6 +277,10 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} Error
 // @Router /users/{id} [delete]
 func deleteUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
@@ -239,14 +299,31 @@ func signin(w http.ResponseWriter, r *http.Request) {
 		errorHandler(w, r, http.StatusNotFound)
 		return
 	}
+
+	if r.Method == http.MethodOptions {
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		errorHandler(w, r, http.StatusNotFound)
 		return
 	}
 
+	body, err := ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println("Body: ", string(body))
+	data := signinUser{}
+	if err := json.Unmarshal(body, &data); err != nil {
+		log.Println(err)
+	}
+	log.Println("Structure: ", data)
+
 	w.Header().Set("Content-Type", "application/json")
 	row := db.QueryRow(`SELECT email, nickname, password 
-						FROM users WHERE nickname = $1 AND password = $2`, r.FormValue("login"), r.FormValue("password"))
+						FROM users WHERE nickname = $1 AND password = $2`, data.Nickname, data.Password)
 
 	user := User{}
 
@@ -256,14 +333,10 @@ func signin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error": "Invalid login or password"}`, http.StatusBadRequest)
 		return
 	case nil:
-		rawToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"username": r.FormValue("login"),
-			"exp":      time.Now().Add(10 * time.Minute).Unix(),
-		})
-
-		token, err := rawToken.SignedString(secret)
+		token, err := generateToken(r.FormValue("login"))
 		if err != nil {
-			w.Write([]byte("Error: Token was not create!" + err.Error()))
+			log.Println("Token error:", err.Error())
+			w.Write([]byte(`{"error": "Token was not create!"}`))
 			return
 		}
 
@@ -286,21 +359,21 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("WAO team"))
 }
 
-func logout(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/logout" {
-		errorHandler(w, r, http.StatusNotFound)
+func signout(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
 		return
 	}
 
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodDelete {
 		errorHandler(w, r, http.StatusBadRequest)
 		return
 	}
-	_, err := r.Cookie("session_id")
+	val, err := r.Cookie("session_id")
 	if err != nil {
 		errorHandler(w, r, http.StatusBadRequest)
 		return
 	}
+	log.Println("Session: ", val)
 
 	expiredCookie := &http.Cookie{
 		Name:     "session_id",
@@ -324,6 +397,9 @@ func checkSession(w http.ResponseWriter, r *http.Request) {
 		errorHandler(w, r, http.StatusNotFound)
 		return
 	}
+	if r.Method != http.MethodOptions {
+		return
+	}
 	if r.Method != http.MethodGet {
 		errorHandler(w, r, http.StatusNotFound)
 		return
@@ -338,8 +414,11 @@ func checkSession(w http.ResponseWriter, r *http.Request) {
 	nick, ok := claims["username"]
 	if !ok {
 		log.Println("Bad claims: field 'username' not exist")
-		w.WriteHeader(http.StatusUnauthorized)
-		return
+		nick, ok = claims["email"]
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(fmt.Sprintf(`[{"nickname": "%v"}]`, nick)))
@@ -390,12 +469,10 @@ func CORSMiddleware(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Origin", frontAddres)
 			w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 			w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With, Content-Type, Origin")
+			w.Header().Set("Content-Security-Policy", "default-src 'self'")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("Access-Control-Max-Age", "600")
-			return
-		} else {
-			next.ServeHTTP(w, r)
 		}
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -425,13 +502,13 @@ func main() {
 	actionMux := mux.NewRouter()
 	apiV1 := actionMux.PathPrefix("/api").Subrouter()
 
-	apiV1.HandleFunc("/users", GetUsers).Methods("GET")
-	apiV1.HandleFunc("/users", CreateUser).Methods("POST")
+	apiV1.HandleFunc("/users", GetUsers).Methods("GET", " OPTIONS")
+	apiV1.HandleFunc("/users", CreateUser).Methods("POST", "OPTIONS")
 	apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(GetUser))).Methods("GET")
-	apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(updateUser))).Methods("PUT")
-	apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(deleteUser))).Methods("DELETE")
-	apiV1.Handle("/session", authMiddleware(http.HandlerFunc(logout))).Methods("DELETE")
-	apiV1.HandleFunc("/session", checkSession).Methods("GET")
+	apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(updateUser))).Methods("PUT", "OPTIONS")
+	apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(deleteUser))).Methods("DELETE", "OPTIONS")
+	apiV1.HandleFunc("/session", signout).Methods("DELETE", "OPTIONS")
+	apiV1.HandleFunc("/session", checkSession).Methods("GET", "OPTIONS")
 	apiV1.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	})
@@ -441,12 +518,6 @@ func main() {
 	siteMux.HandleFunc("/api/docs/", httpSwagger.WrapHandler)
 	siteMux.HandleFunc("/", mainPage)
 	siteMux.HandleFunc("/signin", signin)
-	siteMux.HandleFunc("/signout", logout)
-
-	siteMux.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Мы команда DREAM TEAM"))
-	})
-
 	siteMux.Handle("/favicon.ico", http.NotFoundHandler())
 
 	staticHandler := http.StripPrefix(

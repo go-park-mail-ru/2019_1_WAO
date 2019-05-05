@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	_ "net/http"
 )
 
 type Vector struct {
@@ -17,10 +18,11 @@ type Point struct {
 type Player struct {
 	X  float64 `json:"x"`
 	Y  float64 `json:"y"`
-	vx float64
-	vy float64
-	w  float64
-	h  float64
+	Vx float64 `json:"vx"`
+	Vy float64 `json:"vy"`
+	W  float64 `json:"w"`
+	H  float64 `json:"h"`
+	// conn *websocket.Conn
 }
 
 func (player *Player) Move(vector Vector, dt float64) {
@@ -40,8 +42,8 @@ func CheckPointCollision(playerPoint, blockUpPoint, blockDownPoint Point) bool {
 // func (player *Player) CheckCollision(block Block) bool {
 // 	var playerPoints []Point
 
-// 	playerPoints = append(playerPoints, Point{player.X, player.Y}, Point{player.X + player.w, player.Y},
-// 		Point{player.X, player.Y + player.h}, Point{player.X + player.w, player.Y + player.h})
+// 	playerPoints = append(playerPoints, Point{player.X, player.Y}, Point{player.X + player.W, player.Y},
+// 		Point{player.X, player.Y + player.H}, Point{player.X + player.W, player.Y + player.H})
 // 	// We will check collisions between the block and each player's point
 // 	isCollision := false
 // 	blockUpPoint := Point{block.X, block.Y}
@@ -59,7 +61,7 @@ func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
 	nearestBlock = nil
 	var minY float64
 	for _, block := range blocks {
-		if player.X+player.w >= block.X && player.X <= block.X+block.w {
+		if player.X+player.W >= block.X && player.X <= block.X+block.w {
 			if block.Y-player.Y < minY && player.Y <= block.Y {
 				minY = block.Y - player.Y
 				nearestBlock = block
@@ -70,7 +72,7 @@ func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
 }
 
 func (player *Player) Jump() {
-	player.vy = -0.35 // Change a vertical speed (for jump)
+	player.Vy = -0.35 // Change a vertical speed (for jump)
 }
 
 func (player *Player) SetPlayerOnPlate(block *Block) {
@@ -80,7 +82,7 @@ func (player *Player) SetPlayerOnPlate(block *Block) {
 // func (player *Player) CheckCollision(block Block) bool {
 // 	var playerPoints []Point
 
-// 	playerPoints = append(playerPoints, Point{player.X, player.Y + player.h}, Point{player.X + player.w, player.Y + player.h})
+// 	playerPoints = append(playerPoints, Point{player.X, player.Y + player.H}, Point{player.X + player.W, player.Y + player.H})
 // 	// We will check collisions between the block and each player's point
 // 	isCollision := false
 // 	blockUpPoint := Point{block.X, block.Y}
@@ -99,8 +101,8 @@ func (player *Player) CheckCollision(block *Block, dt float64) bool {
 	// if block {
 	// 	return false
 	// }
-	if player.vy >= 0 { // If the collision will occur
-		if player.Y+player.vy*dt < block.Y-15 {
+	if player.Vy >= 0 { // If the collision will occur
+		if player.Y+player.Vy*dt < block.Y-15 {
 			return true
 		}
 		player.SetPlayerOnPlate(block)
@@ -110,8 +112,8 @@ func (player *Player) CheckCollision(block *Block, dt float64) bool {
 }
 
 func (player *Player) Gravity(g float64, dt float64) {
-	player.vy += g * dt
-	// player.Move(Vector{0, player.vy})
+	player.Vy += g * dt
+	// player.Move(Vector{0, player.Vy})
 	// fmt.Printf("x: %f, y: %f\n", player.X, player.Y)
 	// nearestBlock := player.SelectNearestBlock()
 	// player.CheckCollision(nearestBlock, dt)

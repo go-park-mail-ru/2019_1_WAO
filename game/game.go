@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-var players []*Player
+var Players []*Player
 
 // func FieldGenerator(w int, h int, jumpLength float64) (player *Player) {
 // 	r := rand.New(rand.NewSource(99))
@@ -51,13 +51,13 @@ func FieldGenerator(beginY float64, b float64, k uint16) (newBlocks []*Block) {
 
 func GameLoop() {
 	var wg sync.WaitGroup
-	for _, player := range players {
+	for _, player := range Players {
 		wg.Add(1)
 		go func(pl *Player) {
 			defer wg.Done()
 			player.CircleDraw()
 			player.Gravity(g, 1000/16) // dt = 1000 / 16
-			player.Move(Vector{pl.vx, pl.vy}, 1000/16)
+			player.Move(Vector{pl.Vx, pl.Vy}, 1000/16)
 			nearestBlock := player.SelectNearestBlock()
 			player.CheckCollision(nearestBlock, 1000/16)
 		}(player)

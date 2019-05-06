@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 
 	game "./game"
@@ -13,7 +12,7 @@ import (
 
 type connections map[*game.Player]*websocket.Conn
 
-// var rooms map[string]connections
+var rooms map[string]connections
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -25,7 +24,7 @@ var upgrader = websocket.Upgrader{
 
 type Message struct {
 	Type    string          `json:"type"`
-	Payload json.RawMessage `json:"payload"`
+	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
 type Move struct {
@@ -48,27 +47,63 @@ type Move struct {
 
 // }
 
-// func ConnectPlayerToRoom(socketPlayer *websocket.Conn, roomName string) {
-// 	var room connections
-// 	// var ok bool
-// 	// if room, ok = rooms[roomName]; !ok {
-// 	// 	fmt.Println("This room already exists!")
-// 	// 	return
-// 	// }
-// 	newPlayer := &game.Player{
-// 		X: 0,
-// 		Y: 0,
-// 	}
-// 	room[newPlayer] = socketPlayer
-// }
+func ConnectPlayerToRoom(socketPlayer *websocket.Conn, roomName string) {
+	// var ok bool
+	// if room, ok = rooms[roomName]; !ok {
+	// 	fmt.Println("This room already exists!")
+	// 	return
+	// }
+	if rooms[roomName] == nil {
+		rooms[roomName] = make(connections)
+	}
+	newPlayer := &game.Player{
+		X:  0,
+		Y:  0,
+		Vx: 0,
+		Vy: 0,
+		Id: len(game.Players),
+	}
+	rooms[roomName][newPlayer] = socketPlayer
+	game.Players = append(game.Players, newPlayer)
+	fmt.Printf("Player was connected to the room *%s*\n", roomName)
+	// fmt.Printlf("Players %s room:\n", room)
+}
+
 func SocketFunc(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Fatal("Error", err)
+		fmt.Println("Socket connection error", err)
+		return
 	}
-	// defer ws.Close()
-	// ConnectPlayerToRoom(ws, "first") // Connect this player
-	go ReadSocket(ws)
+	go func() {
+		ConnectPlayerToRoom(ws, "first") // Connect this player
+		ReadSocket(ws)
+	}()
+}
+
+func SendStatePlayers() {
+	JsonPlayers, err := json.Marshal(game.Players)
+	if err != nil {
+		fmt.Println("Error encoding players", err)
+		return
+	}
+	msg := Message{
+		Type:    "players",
+		Payload: JsonPlayers,
+	}
+
+	// var sendingMessage []byte
+	sendingMessage, err := json.Marshal(msg)
+
+	for _, player := range rooms["first"] {
+		if err := player.WriteMessage(websocket.TextMessage, sendingMessage); err != nil {
+			fmt.Println("Error send players was occured", err)
+		}
+	}
+
+	for _, plr := range game.Players {
+		fmt.Printf("***Player***\nid: %d, x: %f, y: %f, vx: %f, vy: %f\n", plr.Id, plr.X, plr.Y, plr.Vx, plr.Vy)
+	}
 }
 
 func ReadSocket(ws *websocket.Conn) {
@@ -76,7 +111,7 @@ func ReadSocket(ws *websocket.Conn) {
 	defer ws.Close()
 	for {
 		_, buf, err := ws.ReadMessage()
-		fmt.Println(buf)
+		fmt.Println(string(buf))
 		if err != nil {
 			fmt.Println("Error reading message", err)
 			return
@@ -96,13 +131,30 @@ func ReadSocket(ws *websocket.Conn) {
 			}
 			fmt.Println("Move was received")
 			fmt.Printf("Direction: %s, dt: %f\n", moving.Direction, moving.Dt)
-		case "player":
-			var plr game.Player
-			if err := json.Unmarshal([]byte(msg.Payload), &plr); err != nil {
-				fmt.Println("Moving error was occured", err)
+		case "map":
+			newBlocks := game.FieldGenerator(100, 100, 10)
+			buf, err := json.Marshal(newBlocks)
+			if err != nil {
+				fmt.Println("Error encoding new blocks", err)
 				return
 			}
-			fmt.Printf("***Player***\nx: %f, y: %f, vx: %f, vy: %f\n", plr.X, plr.Y, plr.Vx, plr.Vy)
+			JsonNewBlocks := Message{
+				Type:    "map",
+				Payload: buf,
+			}
+
+			BlocksToSend, err := json.Marshal(JsonNewBlocks)
+			if err != nil {
+				fmt.Println("Error encoding new blocks", err)
+				return
+			}
+			err = ws.WriteMessage(websocket.TextMessage, BlocksToSend)
+			if err != nil {
+				fmt.Println("Error send new blocks", err)
+				return
+			}
+		case "players":
+
 		case "blocks":
 			var blocks []game.Block
 			if err := json.Unmarshal([]byte(msg.Payload), &blocks); err != nil {
@@ -119,17 +171,6 @@ func ReadSocket(ws *websocket.Conn) {
 }
 
 func WriteSocket(ws *websocket.Conn) {
-	// ticker := time.NewTicker(3 * time.Second)
-	// for {
-	// 	w, err := ws.NextWriter(websocket.TextMessage)
-	// 	if err != nil {
-	// 		ticker.Stop()
-	// 		break
-	// 	}
-	// 	w.Write([]byte("Hello!"))
-	// 	w.Close()
-	// 	<-ticker.C
-	// }
 	player := game.FieldGenerator(100, 100, 10.0)
 
 	err := ws.WriteJSON(player)
@@ -156,6 +197,6 @@ func main() {
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static", fs))
 	fmt.Println("Server is listening")
-
+	rooms = make(map[string]connections)
 	http.ListenAndServe(":8080", nil)
 }

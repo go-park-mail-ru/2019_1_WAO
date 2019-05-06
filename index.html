@@ -13,7 +13,12 @@
     <button id="click" onclick="stop();">Click</button>
     <button id="click" onclick="sendMessage();">Send</button><br>
     <h2>WebSocket Test</h2>
-
+    <canvas height='320' width='480' id='example'>Обновите браузер</canvas>
+    <script>
+        var example = document.getElementById("example"),
+            ctx     = example.getContext('2d');
+        ctx.fillRect(0, 0, example.width, example.height);
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
     <script>
 //       var socket = io('ws://127.0.0.1:8080/move', {transports: ['websocket']});
@@ -33,23 +38,39 @@
 // function sendMessage() {
 //     socket.emit('right', '{"a": 1, "b": 2}');
 // }
-var socket = new WebSocket("ws://127.0.0.1:8080/move");
+var socket = new WebSocket("ws://127.0.0.1:8080/websocket");
 function stop() {
     
 }
 socket.onopen = () => {
     alert("Соединение установлено!");
+//     for (var i = 0; i < 3; i++) {
+//   socket.send(JSON.stringify({
+//     type: 'move',
+//     payload: {
+//         direction: 'LEFT',
+//         dt: 5.06,
+//     },
+// }));  
+// }
 }
 socket.onclose = () => {
     alert("Соединение оборвалось");
 }
 socket.onmessage = (event) => {
-    var human = JSON.parse(event.data);
-    alert(`My name is ${human.name} and my id = ${human.id}`);
+    // var human = JSON.parse(event.data);
+    // alert(`My name is ${human.name} and my id = ${human.id}`);
+    alert(event.data);
 }
 function sendMessage() {
-    socket.send(JSON.stringify({id: 6, name: 'Igor'}));    
+    // socket.send(JSON.stringify({id: 6, name: 'Igor'}));   
+    socket.send(JSON.stringify({
+        type: 'map',
+    }
+    ));
 }
+
+
     </script>
 </body>
 </html>

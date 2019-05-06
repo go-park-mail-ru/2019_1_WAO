@@ -16,6 +16,7 @@ type Point struct {
 }
 
 type Player struct {
+	Id int     `json:"id`
 	X  float64 `json:"x"`
 	Y  float64 `json:"y"`
 	Vx float64 `json:"vx"`

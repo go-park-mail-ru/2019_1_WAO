@@ -1,6 +1,8 @@
 package game
 
 import (
+	"fmt"
+	"log"
 	"math/rand"
 	"sync"
 
@@ -37,9 +39,9 @@ func FieldGenerator(beginY float64, b float64, k uint16) (newBlocks []*Block) {
 		currentY -= p
 	}
 	// blocks = append(blocks, newBlocks)
-	for _, block := range newBlocks {
-		Blocks = append(Blocks, block)
-	}
+	// for _, block := range newBlocks {
+	// 	Blocks = append(Blocks, block)
+	// }
 	return
 }
 
@@ -88,8 +90,15 @@ func Collision(command *Command) {
 func Engine(player *Player, wg *sync.WaitGroup) {
 	defer wg.Done()
 	CircleDraw()
-	for _, command := range Commands {
-		player = FoundPlayer(command.IdP)
+	queue := player.queue
+	log.Printf("Len of queue for player with *ID%d*: %d", player.Id, queue.Count)
+	for i := 0; i < queue.Count; i++ {
+		command := queue.Pop()
+		if command == nil {
+			fmt.Println("Command's error was occured")
+			return
+		}
+		// player = FoundPlayer(command.IdP)
 		if command.Direction == "LEFT" {
 			player.X -= player.Vx * command.Delay
 		} else if command.Direction == "RIGHT" {
@@ -102,7 +111,7 @@ func Engine(player *Player, wg *sync.WaitGroup) {
 		ScrollMap(Commands[0].Delay)
 	}
 	for _, command := range Commands {
-		Move(command)
+		player.Y += (player.Vy * command.Delay)
 	}
 	// return this.state;
 }
@@ -111,14 +120,59 @@ func Engine(player *Player, wg *sync.WaitGroup) {
 
 type Connections map[*Player]*websocket.Conn
 
-func GameLoop(connections *Connections) {
+// func GameLoop(connections *Connections) {
 
-	for {
-		var wg sync.WaitGroup
-		for player, _ := range *connections {
-			wg.Add(1)
-			go Engine(player, &wg)
-		}
-		wg.Wait()
+// 	for {
+// 		var wg sync.WaitGroup
+// 		for player, _ := range *connections {
+// 			wg.Add(1)
+// 			go Engine(player, &wg)
+// 		}
+// 		wg.Wait()
+// 	}
+// }
+
+type Game struct {
+	MaxRooms uint
+	rooms    []*Room
+	mutex    *sync.Mutex
+	register chan *Player
+}
+
+func NewGame(maxRooms uint) *Game {
+	return &Game{
+		register: make(chan *Player),
 	}
+}
+
+func (g *Game) Run() {
+	log.Println("Main loop started")
+
+LOOP:
+	for {
+		player := <-g.register
+
+		for _, room := range g.rooms {
+			if len(room.Players) < int(room.MaxPlayers) {
+				room.AddPlayer(player)
+				continue LOOP
+			}
+		}
+
+		room := NewRoom(2)
+		g.AddRoom(room)
+
+		go room.Run()
+
+		room.AddPlayer(player)
+	}
+}
+
+func (g *Game) AddPlayer(player *Player) {
+	log.Printf("Player %d queued to add", player.Id)
+	g.register <- player
+}
+
+func (g *Game) AddRoom(room *Room) {
+	g.rooms = append(g.rooms, room)
 }

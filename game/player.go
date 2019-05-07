@@ -1,7 +1,13 @@
 package game
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net"
 	_ "net/http"
+
+	"github.com/gorilla/websocket"
 )
 
 type Vector struct {
@@ -14,14 +20,24 @@ type Point struct {
 	y float64
 }
 
+type Message struct {
+	Type    string          `json:"type"`
+	Payload json.RawMessage `json:"payload,omitempty"`
+}
+
 type Player struct {
-	Id int     `json:"id`
-	X  float64 `json:"x"`
-	Y  float64 `json:"y"`
-	Vx float64 `json:"vx"`
-	Vy float64 `json:"vy"`
-	W  float64 `json:"w"`
-	H  float64 `json:"h"`
+	connection *websocket.Conn `json:"-"`
+	room       *Room           `json:"-"`
+	queue      *Queue          `json:"-"` // Commands queue for players
+	in         chan []byte     `json:"-"`
+	out        chan []byte     `json:"-"`
+	Id         int             `json:"id`
+	X          float64         `json:"x"`
+	Y          float64         `json:"y"`
+	Vx         float64         `json:"vx"`
+	Vy         float64         `json:"vy"`
+	W          float64         `json:"w"`
+	H          float64         `json:"h"`
 	// conn *websocket.Conn
 }
 
@@ -45,25 +61,6 @@ func CheckPointCollision(playerPoint, blockUpPoint, blockDownPoint Point) bool {
 	}
 	return false
 }
-
-// The function checks all of the player points, but we need only bottom two points
-// func (player *Player) CheckCollision(block Block) bool {
-// 	var playerPoints []Point
-
-// 	playerPoints = append(playerPoints, Point{player.X, player.Y}, Point{player.X + player.W, player.Y},
-// 		Point{player.X, player.Y + player.H}, Point{player.X + player.W, player.Y + player.H})
-// 	// We will check collisions between the block and each player's point
-// 	isCollision := false
-// 	blockUpPoint := Point{block.X, block.Y}
-// 	blockDownPoint := Point{block.X + block.w, block.Y + block.h}
-// 	for _, point := range playerPoints {
-// 		if CheckPointCollision(point, blockUpPoint, blockDownPoint) {
-// 			isCollision = true
-// 			break
-// 		}
-// 	}
-// 	return isCollision
-// }
 
 func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
 	nearestBlock = nil
@@ -90,23 +87,6 @@ func (player *Player) Jump() {
 func (player *Player) SetPlayerOnPlate(block *Block) {
 	player.Y = block.Y - block.h
 }
-
-// func (player *Player) CheckCollision(block Block) bool {
-// 	var playerPoints []Point
-
-// 	playerPoints = append(playerPoints, Point{player.X, player.Y + player.H}, Point{player.X + player.W, player.Y + player.H})
-// 	// We will check collisions between the block and each player's point
-// 	isCollision := false
-// 	blockUpPoint := Point{block.X, block.Y}
-// 	blockDownPoint := Point{block.X + block.w, block.Y + block.h}
-// 	for _, point := range playerPoints {
-// 		if CheckPointCollision(point, blockUpPoint, blockDownPoint) {
-// 			isCollision = true
-// 			break
-// 		}
-// 	}
-// 	return isCollision
-// }
 
 func (player *Player) Gravity(g float64, dt float64) {
 	player.Vy += g * dt
@@ -139,3 +119,132 @@ func FoundPlayer(id int) *Player {
 //     let player = this.foundPlayer(command.idP);
 //     player.y += (player.dy * command.delay);
 //   }
+
+func NewPlayer(conn *websocket.Conn, id int) *Player {
+	newPlayer := &Player{
+		connection: conn,
+		Id:         id,
+		in:         make(chan []byte),
+		out:        make(chan []byte),
+	}
+	Players = append(Players, newPlayer)
+	return newPlayer
+}
+
+func (p *Player) Listen() {
+	go func() {
+		defer p.room.RemovePlayer(p)
+		for {
+			_, buffer, err := p.connection.ReadMessage()
+			fmt.Println(string(buffer))
+			var msg Message
+			if err := json.Unmarshal(buffer, &msg); err != nil {
+				fmt.Println("Error message parsing", err)
+				return
+			}
+			if _, ok := err.(*net.OpError); ok {
+				log.Println("My Life is a pain")
+				// p.room.RemovePlayer(p)
+				log.Printf("Player %s disconnected", p.Id)
+				return
+			}
+
+			if websocket.IsUnexpectedCloseError(err) {
+				// p.room.RemovePlayer(p)
+				log.Printf("Player %s disconnected", p.Id)
+				return
+			}
+			if err != nil {
+				log.Printf("cannot read json: %v", err)
+				continue
+			}
+
+			switch msg.Type {
+			case "move":
+				var command Command
+				if err := json.Unmarshal([]byte(msg.Payload), &command); err != nil {
+					fmt.Println("Moving error was occured", err)
+					return
+				}
+				fmt.Println(" was received")
+				fmt.Printf("Direction: %s, dt: %f\n", command.Direction, command.Delay)
+				command.IdP = p.Id
+				payload, err := json.Marshal(command)
+				if err != nil {
+					fmt.Println("Error with encoding command", err)
+					return
+				}
+				msg.Payload = payload
+				for _, player := range p.room.Players {
+					if player != p {
+						player.SendMessage(&msg)
+					}
+				}
+
+			case "map":
+				newBlocks := FieldGenerator(100, 100, 10)
+				for _, newBlock := range newBlocks {
+					p.room.Blocks = append(p.room.Blocks, newBlock)
+				}
+
+				buffer, err := json.Marshal(newBlocks)
+				if err != nil {
+					fmt.Println("Error encoding new blocks", err)
+					return
+				}
+				JsonNewBlocks := Message{
+					Type:    "map",
+					Payload: buffer,
+				}
+
+				// BlocksToSend, err := json.Marshal(JsonNewBlocks)
+				// if err != nil {
+				// 	fmt.Println("Error encoding new blocks", err)
+				// 	return
+				// }
+				for _, player := range p.room.Players {
+					// err = player.connection.WriteMessage(websocket.TextMessage, BlocksToSend)
+					// if err != nil {
+					// 	fmt.Println("Error send new blocks", err)
+					// }
+					player.SendMessage(&JsonNewBlocks)
+				}
+
+			// case "players":
+			case "lose":
+				fmt.Println("!Player lose!")
+				p.room.RemovePlayer(p)
+				// case "blocks":
+				// 	var blocks []game.Block
+				// 	if err := json.Unmarshal([]byte(msg.Payload), &blocks); err != nil {
+				// 		fmt.Println("Moving error was occured", err)
+				// 		return
+				// 	}
+				// 	fmt.Println("Blocks:")
+				// 	for index, block := range blocks {
+				// 		fmt.Printf("*Block %d*\nx: %f, y: %f\n", index, block.X, block.Y)
+				// 	}
+
+			}
+			// p.in <- message
+		}
+	}()
+
+	for {
+		select {
+		case message := <-p.out:
+			p.connection.WriteMessage(websocket.TextMessage, message)
+		case message := <-p.in:
+			log.Printf("Income: %#v", message)
+		}
+	}
+}
+
+func (p *Player) SendMessage(message *Message) {
+	data, err := json.Marshal(*message)
+	if err != nil {
+		fmt.Println("Error with encoding struct was occured", err)
+		return
+	}
+	p.out <- data
+}

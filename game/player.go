@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	_ "net/http"
 )
 
@@ -26,10 +25,18 @@ type Player struct {
 	// conn *websocket.Conn
 }
 
-func (player *Player) Move(vector Vector, dt float64) {
-	player.X += vector.x * dt
-	player.Y += vector.y * dt
-	fmt.Printf("x: %f, y: %f\n", player.X, player.Y)
+// func (player *Player) Move(vector Vector, dt float64) {
+// 	player.X += vector.x * dt
+// 	player.Y += vector.y * dt
+// 	fmt.Printf("x: %f, y: %f\n", player.X, player.Y)
+// }
+
+func Move(command *Command) {
+	var player *Player = FoundPlayer(command.IdP)
+	if player == nil {
+		return
+	}
+	player.Y += (player.Vy * command.Delay)
 }
 
 func CheckPointCollision(playerPoint, blockUpPoint, blockDownPoint Point) bool {
@@ -61,7 +68,7 @@ func CheckPointCollision(playerPoint, blockUpPoint, blockDownPoint Point) bool {
 func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
 	nearestBlock = nil
 	var minY float64
-	for _, block := range blocks {
+	for _, block := range Blocks {
 		if player.X+player.W >= block.X && player.X <= block.X+block.w {
 			if block.Y-player.Y < minY && player.Y <= block.Y {
 				minY = block.Y - player.Y
@@ -73,6 +80,10 @@ func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
 }
 
 func (player *Player) Jump() {
+	if Blocks[0].Vy != 0 {
+		player.Vy = -0.35 + Blocks[0].Vy
+		return
+	}
 	player.Vy = -0.35 // Change a vertical speed (for jump)
 }
 
@@ -97,21 +108,6 @@ func (player *Player) SetPlayerOnPlate(block *Block) {
 // 	return isCollision
 // }
 
-func (player *Player) CheckCollision(block *Block, dt float64) bool {
-	// block := player.SelectNearestBlock()
-	// if block {
-	// 	return false
-	// }
-	if player.Vy >= 0 { // If the collision will occur
-		if player.Y+player.Vy*dt < block.Y-15 {
-			return true
-		}
-		player.SetPlayerOnPlate(block)
-		player.Jump()
-	}
-	return false
-}
-
 func (player *Player) Gravity(g float64, dt float64) {
 	player.Vy += g * dt
 	// player.Move(Vector{0, player.Vy})
@@ -127,3 +123,19 @@ func (player *Player) CircleDraw() {
 		player.X = widthField
 	}
 }
+
+func FoundPlayer(id int) *Player {
+	for _, player := range Players {
+		if player.Id == id {
+			return player
+		}
+	}
+	return nil
+}
+
+// Сдвиг персонажа вниз
+
+// move(command) {
+//     let player = this.foundPlayer(command.idP);
+//     player.y += (player.dy * command.delay);
+//   }

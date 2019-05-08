@@ -98,10 +98,10 @@ func (player *Player) Gravity(g float64, dt float64) {
 }
 
 func (player *Player) CircleDraw() {
-	if player.X > widthField {
+	if player.X > WidthField {
 		player.X = 0
 	} else if player.X < 0 {
-		player.X = widthField
+		player.X = WidthField
 	}
 }
 
@@ -173,8 +173,9 @@ func (p *Player) Listen() {
 				}
 				fmt.Println(" was received")
 				fmt.Printf("Direction: %s, dt: %f\n", command.Direction, command.Delay)
-				p.queue.Push(&command)
 				command.IdP = p.IdP
+				p.queue.Push(&command)
+
 				payload, err := json.Marshal(command)
 				if err != nil {
 					fmt.Println("Error with encoding command", err)

@@ -63,7 +63,7 @@ func (room *Room) Run() {
 				Blocks  []*Block  `json:"blocks"`
 				Players []*Player `json:"players"`
 			}
-			room.Blocks = FieldGenerator(100, 100, 10)
+			room.Blocks = FieldGenerator(HeightField-20, 2000, 2000*0.01)
 			var players []*Player
 			for _, p := range room.Players {
 				players = append(players, p) // The

@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+// protoc --go_out=plugins=grpc:. *.proto
+
+package auth;
+
+message Token {
+    string value = 1;
+}
+
+message UserData {
+    string login = 1;
+    string password = 2;
+    string agent = 3;
+}
+
+message Nothing {
+    bool null = 1;
+}
+
+// grpc-сервис проверки авторизации
+service AuthChecker {
+    rpc Create (UserData) returns (Token) {}
+    rpc Check (Token) returns (UserData) {}
+    rpc Delete (Token) returns (Nothing) {}
+}

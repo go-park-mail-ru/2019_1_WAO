@@ -13,41 +13,6 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// func mockUsers() {
-// 	Users = append(Users,
-// 		User{
-// 			ID:       1,
-// 			Email:    "goshan@pochta.ru",
-// 			password: "12d345",
-// 			Nick:     "karlik",
-// 			Scope:    119,
-// 			Games:    5,
-// 			Wins:     1,
-// 			Image:    "avatar.jpg",
-// 		},
-// 		User{
-// 			ID:       2,
-// 			Email:    "pashok@pochta.ru",
-// 			password: "12345",
-// 			Nick:     "joker",
-// 			Scope:    200,
-// 			Games:    1,
-// 			Wins:     3,
-// 			Image:    "avatar.jpg",
-// 		},
-// 		User{
-// 			ID:       3,
-// 			Email:    "test_login",
-// 			password: "12345",
-// 			Nick:     "Watermar",
-// 			Scope:    1,
-// 			Games:    1,
-// 			Wins:     1,
-// 			Image:    "avatar.jpg",
-// 		},
-// 	)
-// }
-
 type TestCaseUsers struct {
 	response   string
 	login      string

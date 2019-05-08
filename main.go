@@ -44,7 +44,6 @@ type Error struct {
 	Message string
 }
 
-var secret = []byte("secretkey")
 var db *sql.DB
 
 func checkAuthorization(r http.Request) (jwt.MapClaims, bool, error) {
@@ -109,7 +108,6 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 	w.Write([]byte(`}`))
 	// w.Write([]byte(`{"Limit":"2", "Offset":"4"}`))
-
 }
 
 // ShowAccount godoc

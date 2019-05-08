@@ -1,0 +1,15 @@
+apisrv:
+  host: 127.0.0.1
+  port: 5000
+
+authsrv:
+  host: 127.0.0.1
+  port: 5051
+
+db:
+  host: localhost
+  user: postgres
+  password: 123456
+  name: waogame
+
+secret: waosecret

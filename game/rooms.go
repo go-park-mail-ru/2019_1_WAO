@@ -107,12 +107,12 @@ func (room *Room) Run() {
 			room.Players[0].SendMessage(msg)
 			room.Players[1].SendMessage(msg2)
 			for {
-				var wg sync.WaitGroup
+				// var wg sync.WaitGroup
 				for _, player := range room.Players {
-					wg.Add(1)
-					go Engine(player, &wg)
+					// wg.Add(1)
+					Engine(player)
 				}
-				wg.Wait()
+				// wg.Wait()
 			}
 			log.Println("wait finished")
 			// default:

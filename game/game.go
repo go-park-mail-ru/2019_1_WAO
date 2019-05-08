@@ -13,12 +13,14 @@ var Blocks []*Block
 var Commands []*Command
 var Players []*Player
 
-var widthField float64 = 400
-var heightField float64 = 700
+var WidthField float64 = 400
+var HeightField float64 = 700
+
+// var koefHeightOfMaxGenerateSlice float64 = 2000
 var gravity float64 = 0.0004
 
 func GetParams() (float64, uint16) {
-	return (heightField - 20) - 20, 5
+	return (HeightField - 20) - 20, 5
 }
 
 func FieldGenerator(beginY float64, b float64, k uint16) (newBlocks []*Block) {
@@ -29,7 +31,7 @@ func FieldGenerator(beginY float64, b float64, k uint16) (newBlocks []*Block) {
 	currentY := beginY
 	var i uint16
 	for i = 0; i < k; i++ {
-		currentX = r.Float64()*(widthField-91) + 1.0
+		currentX = r.Float64()*(WidthField-91) + 1.0
 		newBlocks = append(newBlocks, &Block{
 			X: currentX,
 			Y: currentY,
@@ -64,10 +66,10 @@ func ProcessSpeed(command *Command) {
 
 func CircleDraw() {
 	for _, player := range Players {
-		if player.X > widthField {
+		if player.X > WidthField {
 			player.X = 0
 		} else if player.X < 0 {
-			player.X = widthField
+			player.X = WidthField
 		}
 	}
 }
@@ -87,36 +89,41 @@ func Collision(command *Command) {
 	}
 }
 
-func Engine(player *Player, wg *sync.WaitGroup) {
-	defer wg.Done()
+func Engine(player *Player) {
+	// defer wg.Done()
 	CircleDraw()
-	queue := player.queue
-	log.Printf("Len of queue for player with *ID%d*: %d\n", player.IdP, queue.Count)
 	var commands []*Command
-	for i := 0; i < queue.Count; i++ {
-		commands = append(commands, queue.Pop())
-	}
-	for i := 0; i < len(commands); i++ {
-		command := commands[i]
+	select {
+	case command := <-player.commands:
+		// command := commands[i]
 		if command == nil {
 			fmt.Println("Command's error was occured")
 			return
 		}
 		// player = FoundPlayer(command.IdP)
+		fmt.Println("Command was catched")
 		if command.Direction == "LEFT" {
 			player.X -= player.Vx * command.Delay
+
 		} else if command.Direction == "RIGHT" {
 			player.X += player.Vx * command.Delay
 		}
 		ProcessSpeed(command)
 		Collision(command)
-	}
-	if player.room.Blocks[0].Vy != 0 {
-		ScrollMap(commands[0].Delay)
-	}
-	for _, command := range commands {
 		player.Y += (player.Vy * command.Delay)
 	}
+	// zeroBlock := player.room.Blocks[0]
+	// fmt.Printf("Blocks[0]	-	x: %f, y: %f, vy: %f", zeroBlock.X, zeroBlock.Y, zeroBlock.Vy)
+	if player.room.Blocks[0].Vy != 0 {
+		if commands[0] != nil {
+			ScrollMap(commands[0].Delay)
+		} else {
+			fmt.Println("nil command")
+		}
+	}
+	// for _, command := range commands {
+	// 	player.Y += (player.Vy * command.Delay)
+	// }
 	log.Printf("*Player* id%d	-	x: %f, y: %f, vx: %f, vy: %f\n", player.IdP, player.X, player.Y, player.Vx, player.Vy)
 	// return this.state;
 }

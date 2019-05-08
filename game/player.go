@@ -28,16 +28,17 @@ type Message struct {
 type Player struct {
 	connection *websocket.Conn `json:"-"`
 	room       *Room           `json:"-"`
-	queue      *Queue          `json:"-"` // Commands queue for players
-	in         chan []byte     `json:"-"`
-	out        chan []byte     `json:"-"`
-	IdP        int             `json:"idP`
-	X          float64         `json:"x"`
-	Y          float64         `json:"y"`
-	Vx         float64         `json:"vx"`
-	Vy         float64         `json:"vy"`
-	W          float64         `json:"w"`
-	H          float64         `json:"h"`
+	// queue      *Queue          `json:"-"` // Commands queue for players
+	commands chan *Command `json:"-"`
+	in       chan []byte   `json:"-"`
+	out      chan []byte   `json:"-"`
+	IdP      int           `json:"idP`
+	X        float64       `json:"x"`
+	Y        float64       `json:"y"`
+	Vx       float64       `json:"vx"`
+	Vy       float64       `json:"vy"`
+	W        float64       `json:"w"`
+	H        float64       `json:"h"`
 	// conn *websocket.Conn
 }
 
@@ -126,7 +127,7 @@ func NewPlayer(conn *websocket.Conn) *Player {
 		connection: conn,
 		in:         make(chan []byte),
 		out:        make(chan []byte),
-		queue:      &Queue{},
+		commands:   make(chan *Command, 10),
 	}
 	Players = append(Players, newPlayer)
 	return newPlayer
@@ -171,11 +172,9 @@ func (p *Player) Listen() {
 					fmt.Println("Moving error was occured", err)
 					return
 				}
-				fmt.Println(" was received")
 				fmt.Printf("Direction: %s, dt: %f\n", command.Direction, command.Delay)
 				command.IdP = p.IdP
-				p.queue.Push(&command)
-
+				p.commands <- &command
 				payload, err := json.Marshal(command)
 				if err != nil {
 					fmt.Println("Error with encoding command", err)

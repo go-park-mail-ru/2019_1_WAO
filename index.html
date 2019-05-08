@@ -65,7 +65,7 @@ socket.onmessage = (event) => {
 function sendMessage() {
     // socket.send(JSON.stringify({id: 6, name: 'Igor'}));   
     socket.send(JSON.stringify({
-        type: 'map',
+        type: 'init',
     }
     ));
 }

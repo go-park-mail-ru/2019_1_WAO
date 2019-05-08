@@ -136,9 +136,13 @@ func (p *Player) Listen() {
 		defer p.room.RemovePlayer(p)
 		for {
 			_, buffer, err := p.connection.ReadMessage()
+			if err != nil {
+				fmt.Println("Error connection", err)
+				return
+			}
 			fmt.Println(string(buffer))
 			var msg Message
-			if err := json.Unmarshal(buffer, &msg); err != nil {
+			if err = json.Unmarshal(buffer, &msg); err != nil {
 				fmt.Println("Error message parsing", err)
 				return
 			}
@@ -180,13 +184,57 @@ func (p *Player) Listen() {
 						player.SendMessage(&msg)
 					}
 				}
-
+			case "init":
+				type BlocksAndPlayers struct {
+					Blocks  []*Block  `json:"blocks`
+					Players []*Player `json:"players`
+				}
+				blocks := FieldGenerator(100, 100, 10)
+				for _, block := range blocks {
+					p.room.Blocks = append(p.room.Blocks, block)
+				}
+				var players []*Player
+				players = append(players, p) // The
+				for _, player := range p.room.Players {
+					if player == p {
+						continue
+					}
+					players = append(players, player)
+				}
+				blocksAndPlayers := BlocksAndPlayers{
+					Blocks:  blocks,
+					Players: players,
+				}
+				payload, err := json.Marshal(blocksAndPlayers)
+				if err != nil {
+					log.Println("Error blocks and players is occured", err)
+					return
+				}
+				msg.Payload = payload
+				temp := blocksAndPlayers.Players[0]
+				blocksAndPlayers.Players[0] = blocksAndPlayers.Players[1]
+				blocksAndPlayers.Players[1] = temp
+				payload2, err := json.Marshal(blocksAndPlayers)
+				if err != nil {
+					log.Println("Error blocks and players is occured", err)
+					return
+				}
+				msg2 := Message{
+					Type:    "init",
+					Payload: payload2,
+				}
+				for _, player := range p.room.Players {
+					if player != p {
+						player.SendMessage(&msg2)
+						continue
+					}
+					player.SendMessage(&msg)
+				}
 			case "map":
 				newBlocks := FieldGenerator(100, 100, 10)
 				for _, newBlock := range newBlocks {
 					p.room.Blocks = append(p.room.Blocks, newBlock)
 				}
-
 				buffer, err := json.Marshal(newBlocks)
 				if err != nil {
 					fmt.Println("Error encoding new blocks", err)
@@ -203,14 +251,8 @@ func (p *Player) Listen() {
 				// 	return
 				// }
 				for _, player := range p.room.Players {
-					// err = player.connection.WriteMessage(websocket.TextMessage, BlocksToSend)
-					// if err != nil {
-					// 	fmt.Println("Error send new blocks", err)
-					// }
 					player.SendMessage(&JsonNewBlocks)
 				}
-
-			// case "players":
 			case "lose":
 				fmt.Println("!Player lose!")
 				p.room.RemovePlayer(p)

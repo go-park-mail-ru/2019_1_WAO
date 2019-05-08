@@ -78,6 +78,7 @@ func SocketFunc(w http.ResponseWriter, r *http.Request) {
 	// 	ConnectPlayerToRoom(ws, "first") // Connect this player
 	// 	ReadSocket(ws)
 	// }()
+	// !!!
 	player := game.NewPlayer(ws, len(game.Players))
 	go player.Listen()
 	GameController.AddPlayer(player)

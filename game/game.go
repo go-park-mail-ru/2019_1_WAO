@@ -153,7 +153,7 @@ LOOP:
 		player := <-g.register
 
 		for _, room := range g.rooms {
-			if len(room.Players) < int(room.MaxPlayers) {
+			if len(room.Players) < room.MaxPlayers {
 				room.AddPlayer(player)
 				continue LOOP
 			}

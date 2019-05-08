@@ -31,7 +31,7 @@ type Player struct {
 	queue      *Queue          `json:"-"` // Commands queue for players
 	in         chan []byte     `json:"-"`
 	out        chan []byte     `json:"-"`
-	Id         int             `json:"id`
+	IdP        int             `json:"idP`
 	X          float64         `json:"x"`
 	Y          float64         `json:"y"`
 	Vx         float64         `json:"vx"`
@@ -86,6 +86,7 @@ func (player *Player) Jump() {
 
 func (player *Player) SetPlayerOnPlate(block *Block) {
 	player.Y = block.Y - block.h
+	player.X = block.X + block.w/2 // Отцентровка игрока по середине
 }
 
 func (player *Player) Gravity(g float64, dt float64) {
@@ -106,7 +107,7 @@ func (player *Player) CircleDraw() {
 
 func FoundPlayer(id int) *Player {
 	for _, player := range Players {
-		if player.Id == id {
+		if player.IdP == id {
 			return player
 		}
 	}
@@ -120,12 +121,12 @@ func FoundPlayer(id int) *Player {
 //     player.y += (player.dy * command.delay);
 //   }
 
-func NewPlayer(conn *websocket.Conn, id int) *Player {
+func NewPlayer(conn *websocket.Conn) *Player {
 	newPlayer := &Player{
 		connection: conn,
-		Id:         id,
 		in:         make(chan []byte),
 		out:        make(chan []byte),
+		queue:      &Queue{},
 	}
 	Players = append(Players, newPlayer)
 	return newPlayer
@@ -149,13 +150,13 @@ func (p *Player) Listen() {
 			if _, ok := err.(*net.OpError); ok {
 				log.Println("My Life is a pain")
 				// p.room.RemovePlayer(p)
-				log.Printf("Player %s disconnected", p.Id)
+				log.Printf("Player %s disconnected", p.IdP)
 				return
 			}
 
 			if websocket.IsUnexpectedCloseError(err) {
 				// p.room.RemovePlayer(p)
-				log.Printf("Player %s disconnected", p.Id)
+				log.Printf("Player %s disconnected", p.IdP)
 				return
 			}
 			if err != nil {
@@ -172,7 +173,8 @@ func (p *Player) Listen() {
 				}
 				fmt.Println(" was received")
 				fmt.Printf("Direction: %s, dt: %f\n", command.Direction, command.Delay)
-				command.IdP = p.Id
+				p.queue.Push(&command)
+				command.IdP = p.IdP
 				payload, err := json.Marshal(command)
 				if err != nil {
 					fmt.Println("Error with encoding command", err)
@@ -185,51 +187,60 @@ func (p *Player) Listen() {
 					}
 				}
 			case "init":
-				type BlocksAndPlayers struct {
-					Blocks  []*Block  `json:"blocks`
-					Players []*Player `json:"players`
-				}
-				blocks := FieldGenerator(100, 100, 10)
-				for _, block := range blocks {
-					p.room.Blocks = append(p.room.Blocks, block)
-				}
-				var players []*Player
-				players = append(players, p) // The
-				for _, player := range p.room.Players {
-					if player == p {
-						continue
-					}
-					players = append(players, player)
-				}
-				blocksAndPlayers := BlocksAndPlayers{
-					Blocks:  blocks,
-					Players: players,
-				}
-				payload, err := json.Marshal(blocksAndPlayers)
-				if err != nil {
-					log.Println("Error blocks and players is occured", err)
-					return
-				}
-				msg.Payload = payload
-				temp := blocksAndPlayers.Players[0]
-				blocksAndPlayers.Players[0] = blocksAndPlayers.Players[1]
-				blocksAndPlayers.Players[1] = temp
-				payload2, err := json.Marshal(blocksAndPlayers)
-				if err != nil {
-					log.Println("Error blocks and players is occured", err)
-					return
-				}
-				msg2 := Message{
-					Type:    "init",
-					Payload: payload2,
-				}
-				for _, player := range p.room.Players {
-					if player != p {
-						player.SendMessage(&msg2)
-						continue
-					}
-					player.SendMessage(&msg)
-				}
+				// type BlocksAndPlayers struct {
+				// 	Blocks  []*Block  `json:"blocks`
+				// 	Players []*Player `json:"players`
+				// }
+				// blocks := FieldGenerator(100, 100, 10)
+				// for _, block := range blocks {
+				// 	p.room.Blocks = append(p.room.Blocks, block)
+				// }
+				// var players []*Player
+				// players = append(players, p) // The
+				// currentRoom := p.room
+				// p.SetPlayerOnPlate(currentRoom.Blocks[0])
+				// for _, player := range p.room.Players {
+				// 	if player == p {
+				// 		continue
+				// 	}
+				// 	players = append(players, player)
+				// 	player.SetPlayerOnPlate(currentRoom.Blocks[0])
+				// }
+				// blocksAndPlayers := BlocksAndPlayers{
+				// 	Blocks:  blocks,
+				// 	Players: players,
+				// }
+				// payload, err := json.Marshal(blocksAndPlayers)
+				// if err != nil {
+				// 	log.Println("Error blocks and players is occured", err)
+				// 	return
+				// }
+				// msg.Payload = payload
+				// temp := blocksAndPlayers.Players[0]
+				// blocksAndPlayers.Players[0] = blocksAndPlayers.Players[1]
+				// blocksAndPlayers.Players[1] = temp
+				// payload2, err := json.Marshal(blocksAndPlayers)
+				// if err != nil {
+				// 	log.Println("Error blocks and players is occured", err)
+				// 	return
+				// }
+				// msg2 := Message{
+				// 	Type:    "init",
+				// 	Payload: payload2,
+				// }
+
+				// p.room.Blocks = blocks
+				// for _, player := range currentRoom.Players {
+				// 	player.SetPlayerOnPlate(currentRoom.Blocks[0])
+				// }
+				// p.room.init <- struct{}{}
+				// for _, player := range currentRoom.Players {
+				// 	if player != p {
+				// 		player.SendMessage(&msg2)
+				// 		continue
+				// 	}
+				// 	player.SendMessage(&msg)
+				// }
 			case "map":
 				newBlocks := FieldGenerator(100, 100, 10)
 				for _, newBlock := range newBlocks {

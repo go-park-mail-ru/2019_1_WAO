@@ -91,9 +91,13 @@ func Engine(player *Player, wg *sync.WaitGroup) {
 	defer wg.Done()
 	CircleDraw()
 	queue := player.queue
-	log.Printf("Len of queue for player with *ID%d*: %d", player.Id, queue.Count)
+	log.Printf("Len of queue for player with *ID%d*: %d\n", player.IdP, queue.Count)
+	var commands []*Command
 	for i := 0; i < queue.Count; i++ {
-		command := queue.Pop()
+		commands = append(commands, queue.Pop())
+	}
+	for i := 0; i < len(commands); i++ {
+		command := commands[i]
 		if command == nil {
 			fmt.Println("Command's error was occured")
 			return
@@ -107,12 +111,13 @@ func Engine(player *Player, wg *sync.WaitGroup) {
 		ProcessSpeed(command)
 		Collision(command)
 	}
-	if Blocks[0].Vy != 0 {
-		ScrollMap(Commands[0].Delay)
+	if player.room.Blocks[0].Vy != 0 {
+		ScrollMap(commands[0].Delay)
 	}
-	for _, command := range Commands {
+	for _, command := range commands {
 		player.Y += (player.Vy * command.Delay)
 	}
+	log.Printf("*Player* id%d	-	x: %f, y: %f, vx: %f, vy: %f\n", player.IdP, player.X, player.Y, player.Vx, player.Vy)
 	// return this.state;
 }
 
@@ -169,7 +174,7 @@ LOOP:
 }
 
 func (g *Game) AddPlayer(player *Player) {
-	log.Printf("Player %d queued to add", player.Id)
+	log.Printf("Player %d queued to add", player.IdP)
 	g.register <- player
 }
 

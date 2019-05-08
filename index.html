@@ -12,6 +12,8 @@
     <button id="click" onclick="start();">Start</button><br>
     <button id="click" onclick="stop();">Click</button>
     <button id="click" onclick="sendMessage();">Send</button><br>
+    <button id="click" onclick="left();">Left</button>
+    <button id="click" onclick="right();">Right</button><br>
     <h2>WebSocket Test</h2>
     <canvas height='320' width='480' id='example'>Обновите браузер</canvas>
     <script>
@@ -65,12 +67,30 @@ socket.onmessage = (event) => {
 function sendMessage() {
     // socket.send(JSON.stringify({id: 6, name: 'Igor'}));   
     socket.send(JSON.stringify({
-        type: 'init',
+        type: '',
     }
     ));
 }
 
+function left() {
+    socket.send(JSON.stringify({
+        type: 'move',
+        payload: {
+            direction: 'LEFT',
+            delay: 1.0,
+        }
+    }));
+}
 
+function right() {
+    socket.send(JSON.stringify({
+        type: 'move',
+        payload: {
+            direction: 'RIGHT',
+            delay: 1.0,
+        }
+    }));
+}
     </script>
 </body>
 </html>

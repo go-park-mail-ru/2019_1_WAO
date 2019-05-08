@@ -1,6 +1,7 @@
 package game
 
 import (
+	"encoding/json"
 	"log"
 	"sync"
 	"time"
@@ -43,12 +44,13 @@ func (room *Room) Run() {
 			// player.connection.Close()
 			log.Println("Unregistering...")
 			player.connection.Close()
-			delete(room.Players, player.Id)
-			log.Printf("Player %d was remoted from room", player.Id)
+			delete(room.Players, player.IdP)
+			log.Printf("Player %d was remoted from room", player.IdP)
 			log.Printf("Count of players: %d", len(room.Players))
 		case player := <-room.register:
-			room.Players[player.Id] = player
-			log.Printf("Player %d added to game\n", player.Id)
+			player.IdP = len(room.Players)
+			room.Players[player.IdP] = player
+			log.Printf("Player %d added to game\n", player.IdP)
 			log.Printf("Count of players: %d", len(room.Players))
 			log.Printf("len(room.Players): %d, room.MaxPlayers: %d", len(room.Players), room.MaxPlayers)
 			if len(room.Players) == room.MaxPlayers {
@@ -57,12 +59,61 @@ func (room *Room) Run() {
 			// player.connection.SendMessage(&Message{"Connected", nil})
 		case <-room.init:
 			log.Println("room init")
-			// var wg sync.WaitGroup
+			type BlocksAndPlayers struct {
+				Blocks  []*Block  `json:"blocks"`
+				Players []*Player `json:"players"`
+			}
+			room.Blocks = FieldGenerator(100, 100, 10)
+			var players []*Player
+			for _, p := range room.Players {
+				players = append(players, p) // The
+				p.SetPlayerOnPlate(room.Blocks[0])
+			}
+			blocksAndPlayers := BlocksAndPlayers{
+				Blocks:  room.Blocks,
+				Players: players,
+			}
+			payload, err := json.Marshal(blocksAndPlayers)
+			if err != nil {
+				log.Println("Error blocks and players is occured", err)
+				return
+			}
+			msg := &Message{
+				Type:    "init",
+				Payload: payload,
+			}
+			temp := blocksAndPlayers.Players[0]
+			blocksAndPlayers.Players[0] = blocksAndPlayers.Players[1]
+			blocksAndPlayers.Players[1] = temp
+			payload2, err := json.Marshal(blocksAndPlayers)
+			if err != nil {
+				log.Println("Error blocks and players is occured", err)
+				return
+			}
+			msg2 := &Message{
+				Type:    "init",
+				Payload: payload2,
+			}
+
+			// room.Blocks = blocks
 			// for _, player := range room.Players {
-			// 	wg.Add(1)
-			// 	go Engine(player, &wg)
+			// 	player.SetPlayerOnPlate(room.Blocks[0])
+			// 	if player != p {
+			// 		player.SendMessage(&msg2)
+			// 		continue
+			// 	}
+			// 	player.SendMessage(&msg)
 			// }
-			// wg.Wait()
+			room.Players[0].SendMessage(msg)
+			room.Players[1].SendMessage(msg2)
+			for {
+				var wg sync.WaitGroup
+				for _, player := range room.Players {
+					wg.Add(1)
+					go Engine(player, &wg)
+				}
+				wg.Wait()
+			}
 			log.Println("wait finished")
 			// default:
 			// log.Println("tick")
@@ -83,7 +134,7 @@ func (room *Room) RemovePlayer(player *Player) {
 
 	log.Println("Player was removed!")
 	player.room = nil
-	log.Printf("Data: id: %d\n", player.Id)
+	log.Printf("Data: id: %d\n", player.IdP)
 	room.unregister <- player
 }
 

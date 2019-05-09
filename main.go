@@ -164,63 +164,6 @@ func generateToken(nickname string) (token string, err error) {
 	return tokenString, nil
 }
 
-// ShowAccount godoc
-// @Summary Add user
-// @Description Add user in DB
-// @Accept  json
-// @Produce  json
-// @Param default query string false "string default" default(A)
-// @Success 200 {object} User
-// @Failure 400 {object} Error
-// @Failure 404 {object} Error
-// @Failure 500 {object} Error
-// @Router /api/users [post]
-func CreateUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodOptions {
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	var user UserRegister
-	err := json.NewDecoder(r.Body).Decode(&user)
-	if err != nil {
-		log.Printf("Decode error: %v", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	if user.Email == "" || user.Nickname == "" || user.Password == "" {
-		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"error": "Uncorrect email or nickname or password"}`)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	var nickname string
-	err = db.QueryRow(`INSERT INTO users (email, nickname, password, scope, games, wins, image)
-		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING nickname`,
-		user.Email, user.Nickname, user.Password, 0, 0, 0, "").Scan(&nickname)
-	if err != nil {
-		log.Printf("Error inserting record: %v", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	fmt.Println("New record NICK is:", nickname)
-
-	token, err := generateToken(nickname)
-	if err != nil {
-		log.Println("Token error:", err.Error())
-		w.Write([]byte(`{"error": "Token was not create!"}`))
-		return
-	}
-
-	cookie := &http.Cookie{
-		Name:     "session_id",
-		Value:    token,
-		Expires:  time.Now().Add(10 * time.Minute),
-		HttpOnly: true,
-	}
-	http.SetCookie(w, cookie)
-}
 
 // ShowAccount godoc
 // @Summary Update user data

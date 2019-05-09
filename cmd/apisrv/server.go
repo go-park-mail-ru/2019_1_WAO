@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
@@ -52,11 +50,6 @@ type Error struct {
 
 var db *sql.DB
 
-const (
-	hostname   = "127.0.0.1:5000"
-	authServer = "127.0.0.1:5051"
-)
-
 var (
 	sessionManager auth.AuthCheckerClient
 )
@@ -91,84 +84,84 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`}`))
 }
 
-func GetUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodOptions {
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	params := mux.Vars(r)
+// func GetUser(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method == http.MethodOptions {
+// 		return
+// 	}
+// 	w.Header().Set("Content-Type", "application/json")
+// 	params := mux.Vars(r)
 
-	row := db.QueryRow(`SELECT id, email, nickname, scope, games, wins, image
-						FROM users WHERE nickname = $1;`, params["login"])
+// 	row := db.QueryRow(`SELECT id, email, nickname, scope, games, wins, image
+// 						FROM users WHERE nickname = $1;`, params["login"])
 
-	user := User{}
+// 	user := User{}
 
-	switch err := row.Scan(&user.ID, &user.Email, &user.Nick, &user.Score,
-		&user.Games, &user.Wins, &user.Image); err {
-	case sql.ErrNoRows:
-		log.Println("Method GetUser: No rows were returned!")
-	case nil:
-		if user.Image != "" {
-			user.Image = fmt.Sprintf(`/data/%d/%s`, user.ID, user.Image)
-		}
-		json.NewEncoder(w).Encode(user)
-		return
-	default:
-		log.Println("Method GetUser: ", err)
-	}
-	http.Error(w, `{"error": "This user is not found"}`, http.StatusNotFound)
-}
+// 	switch err := row.Scan(&user.ID, &user.Email, &user.Nick, &user.Score,
+// 		&user.Games, &user.Wins, &user.Image); err {
+// 	case sql.ErrNoRows:
+// 		log.Println("Method GetUser: No rows were returned!")
+// 	case nil:
+// 		if user.Image != "" {
+// 			user.Image = fmt.Sprintf(`/data/%d/%s`, user.ID, user.Image)
+// 		}
+// 		json.NewEncoder(w).Encode(user)
+// 		return
+// 	default:
+// 		log.Println("Method GetUser: ", err)
+// 	}
+// 	http.Error(w, `{"error": "This user is not found"}`, http.StatusNotFound)
+// }
 
-func CreateUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodOptions {
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	var user UserRegister
-	err := json.NewDecoder(r.Body).Decode(&user)
-	if err != nil {
-		log.Printf("Decode error: %v", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
+// func CreateUser(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method == http.MethodOptions {
+// 		return
+// 	}
+// 	w.Header().Set("Content-Type", "application/json")
+// 	var user UserRegister
+// 	err := json.NewDecoder(r.Body).Decode(&user)
+// 	if err != nil {
+// 		log.Printf("Decode error: %v", err)
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		return
+// 	}
 
-	if user.Email == "" || user.Nickname == "" || user.Password == "" {
-		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"error": "Uncorrect email or nickname or password"}`)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
+// 	if user.Email == "" || user.Nickname == "" || user.Password == "" {
+// 		w.Header().Set("Content-Type", "application/json")
+// 		io.WriteString(w, `{"error": "Uncorrect email or nickname or password"}`)
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		return
+// 	}
 
-	var nickname string
-	err = db.QueryRow(`INSERT INTO users (email, nickname, password, scope, games, wins, image)
-		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING nickname`,
-		user.Email, user.Nickname, user.Password, 0, 0, 0, "").Scan(&nickname)
-	if err != nil {
-		log.Printf("Error inserting record: %v", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	fmt.Println("New record NICK is:", nickname)
+// 	var nickname string
+// 	err = db.QueryRow(`INSERT INTO users (email, nickname, password, scope, games, wins, image)
+// 		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING nickname`,
+// 		user.Email, user.Nickname, user.Password, 0, 0, 0, "").Scan(&nickname)
+// 	if err != nil {
+// 		log.Printf("Error inserting record: %v", err)
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		return
+// 	}
+// 	fmt.Println("New record NICK is:", nickname)
 
-	sess, err := sessionManager.Create(
-		context.Background(),
-		&auth.UserData{
-			Login: nickname,
-			Agent: r.UserAgent(),
-		})
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+// 	sess, err := sessionManager.Create(
+// 		context.Background(),
+// 		&auth.UserData{
+// 			Login: nickname,
+// 			Agent: r.UserAgent(),
+// 		})
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		return
+// 	}
 
-	cookie := &http.Cookie{
-		Name:     "session_id",
-		Value:    sess.Value,
-		Expires:  time.Now().Add(10 * time.Minute),
-		HttpOnly: true,
-	}
-	http.SetCookie(w, cookie)
-}
+// 	cookie := &http.Cookie{
+// 		Name:     "session_id",
+// 		Value:    sess.Value,
+// 		Expires:  time.Now().Add(10 * time.Minute),
+// 		HttpOnly: true,
+// 	}
+// 	http.SetCookie(w, cookie)
+// }
 
 func getSession(r *http.Request) (*auth.UserData, error) {
 	cookieSessionID, err := r.Cookie("session_id")
@@ -261,8 +254,10 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Write([]byte("WAO team"))
 
-	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprintln(w, "Welcome "+session.Login)
+	if session != nil {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprintln(w, "<br>Welcome "+session.Login)
+	}
 }
 
 func signout(w http.ResponseWriter, r *http.Request) {
@@ -303,23 +298,23 @@ func signin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		log.Println(err)
-	}
-	log.Println("Body: ", string(body))
-	data := signinUser{}
-	if err := json.Unmarshal(body, &data); err != nil {
-		log.Println(err)
-	}
-	log.Println("Structure: ", data)
-
-	// data := signinUser{
-	// 	Nickname: r.FormValue("login"),
-	// 	Password: r.FormValue("password"),
+	// body, err := ioutil.ReadAll(r.Body)
+	// defer r.Body.Close()
+	// if err != nil {
+	// 	log.Println(err)
 	// }
-	// log.Println("User -- ", data)
+	// log.Println("Body: ", string(body))
+	// data := signinUser{}
+	// if err := json.Unmarshal(body, &data); err != nil {
+	// 	log.Println(err)
+	// }
+	// log.Println("Structure: ", data)
+
+	data := signinUser{
+		Nickname: r.FormValue("login"),
+		Password: r.FormValue("password"),
+	}
+	log.Println("User -- ", data)
 	token, err := sessionManager.Create(
 		context.Background(),
 		&auth.UserData{
@@ -392,16 +387,27 @@ func checkAuthorization(r http.Request) (jwt.MapClaims, bool, error) {
 	return nil, false, nil
 }
 
-func init() {
-	connectStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=%s",
-		viper.GetString("db.user"), viper.GetString("db.password"), viper.GetString("db.name"), viper.GetString("db.sslmode"))
-	var err error
-	db, err = sql.Open("postgres", connectStr)
-	if err != nil {
-		log.Printf("No connection to DB: %v", err)
-		return
-	}
-}
+// func init() {
+// 	connectStr := "user=postgres password=123456 dbname=waogame sslmode=disable"
+
+// 	userDB := viper.GetString("db.user")
+// 	userPass := viper.GetString("db.password")
+// 	nameDB := viper.GetString("db.name")
+// 	ssl := viper.GetString("db.sslmode")
+
+// 	fmt.Println("INFO: ", userDB, userPass, nameDB, ssl)
+
+// 	connectStr2 := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=%s",
+// 		viper.GetString("db.user"), viper.GetString("db.password"), viper.GetString("db.name"), viper.GetString("db.sslmode"))
+
+// 	fmt.Printf("Equal:\n%s\n%s\n", connectStr, connectStr2)
+// 	var err error
+// 	db, err = sql.Open("postgres", connectStr)
+// 	if err != nil {
+// 		log.Printf("No connection to DB: %v", err)
+// 		return
+// 	}
+// }
 
 func main() {
 	viper.AddConfigPath("../../")
@@ -411,8 +417,29 @@ func main() {
 		return
 	}
 
+	userDB := viper.GetString("db.user")
+	userPass := viper.GetString("db.password")
+	nameDB := viper.GetString("db.name")
+	sslMode := viper.GetString("db.sslmode")
+	port := viper.GetString("apisrv.port")
+	host := viper.GetString("apisrv.host")
+	hostAuth := viper.GetString("authsrv.host") + ":" + viper.GetString("authsrv.port")
+	fmt.Println("INFO: ", userDB, userPass, nameDB, sslMode)
+
+	connectStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=%s",
+		userDB, userPass, nameDB, sslMode)
+	fmt.Println("Str: ", connectStr)
+
+	var err error
+	db, err = sql.Open("postgres", connectStr)
+	if err != nil {
+		log.Printf("No connection to DB: %v", err)
+		return
+	}
+	defer db.Close()
+
 	grpcConnect, err := grpc.Dial(
-		authServer,
+		hostAuth,
 		grpc.WithInsecure(),
 	)
 
@@ -429,7 +456,7 @@ func main() {
 	apiV1 := actionMux.PathPrefix("/api").Subrouter()
 
 	apiV1.HandleFunc("/users", GetUsers).Methods("GET", " OPTIONS")
-	apiV1.HandleFunc("/users", CreateUser).Methods("POST", "OPTIONS")
+	// apiV1.HandleFunc("/users", CreateUser).Methods("POST", "OPTIONS")
 	apiV1.HandleFunc("/users/{login}", GetUser).Methods("GET", "OPTIONS")
 	apiV1.HandleFunc("/session", signout).Methods("DELETE", "OPTIONS")
 	apiV1.HandleFunc("/session", checkSession).Methods("GET", "OPTIONS")
@@ -444,6 +471,20 @@ func main() {
 	siteMux.HandleFunc("/signout", signout)
 	http.HandleFunc("/login", loginPage)
 	siteMux.Handle("/favicon.ico", http.NotFoundHandler())
+	siteMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		var loginFormTmpl = []byte(`
+		<html>
+			<body>
+			<form action="/signin" method="post">
+				Login: <input type="text" name="login">
+				Password: <input type="password" name="password">
+				<input type="submit" value="Login">
+			</form>
+			</body>
+		</html>
+		`)
+		w.Write(loginFormTmpl)
+	})
 
 	staticHandler := http.StripPrefix(
 		"/data/",
@@ -453,10 +494,10 @@ func main() {
 
 	srv := &http.Server{
 		Handler:      siteMux,
-		Addr:         viper.GetString("apisrv.host") + ":" + viper.GetString("apisrv.port"),
+		Addr:         host + ":" + port,
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
-	log.Println("Starting server at http://" + viper.GetString("apisrv.host") + ":" + viper.GetString("apisrv.port"))
+	log.Println("Starting server at http://" + srv.Addr)
 	log.Println(srv.ListenAndServe())
 }

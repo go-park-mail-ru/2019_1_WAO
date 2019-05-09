@@ -2,7 +2,6 @@ package game
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"sync"
 )
@@ -31,7 +30,7 @@ func NewRoom(maxPlayers int, game *Game) *Room {
 		register:   make(chan *Player),
 		unregister: make(chan *Player),
 		init:       make(chan struct{}, 1),
-		finish:     make(chan struct{}),
+		finish:     make(chan struct{}, 1),
 	}
 }
 
@@ -47,7 +46,7 @@ func (room *Room) Run() {
 			delete(room.Players, player.IdP)
 			log.Printf("Player %d was remoted from room", player.IdP)
 			log.Printf("Count of players: %d", len(room.Players))
-			room.finish <- struct{}{}
+			// room.finish <- struct{}{}
 		case player := <-room.register:
 			player.IdP = len(room.Players)
 			room.Players[player.IdP] = player
@@ -101,13 +100,7 @@ func (room *Room) Run() {
 				for {
 					select {
 					case <-room.finish:
-						for _, player := range room.Players {
-							room.RemovePlayer(player)
-						}
-						if err := room.game.RemoveRoom(room); err != nil {
-							fmt.Print("Error:", err)
-							return
-						}
+						room.game.RemoveRoom(room)
 					default:
 						// var wg sync.WaitGroup
 						for _, player := range room.Players {

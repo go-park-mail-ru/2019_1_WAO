@@ -32,13 +32,13 @@ type Player struct {
 	commands chan *Command `json:"-"`
 	in       chan []byte   `json:"-"`
 	out      chan []byte   `json:"-"`
-	IdP      int           `json:"idP`
+	IdP      int           `json:"idP"`
 	X        float64       `json:"x"`
 	Y        float64       `json:"y"`
-	Vx       float64       `json:"vx"`
-	Vy       float64       `json:"vy"`
-	W        float64       `json:"w"`
-	H        float64       `json:"h"`
+	Dx       float64       `json:"dx"`
+	Dy       float64       `json:"dy"`
+	W        float64       `json:"-"`
+	H        float64       `json:"-"`
 	// conn *websocket.Conn
 }
 
@@ -48,13 +48,13 @@ type Player struct {
 // 	fmt.Printf("x: %f, y: %f\n", player.X, player.Y)
 // }
 
-func Move(command *Command) {
-	var player *Player = FoundPlayer(command.IdP)
-	if player == nil {
-		return
-	}
-	player.Y += (player.Vy * command.Delay)
-}
+// func Move(command *Command) {
+// 	var player *Player = FoundPlayer(command.IdP)
+// 	if player == nil {
+// 		return
+// 	}
+// 	player.Y += (player.Dy * command.Delay)
+// }
 
 func CheckPointCollision(playerPoint, blockUpPoint, blockDownPoint Point) bool {
 	if blockUpPoint.x <= playerPoint.x && playerPoint.x <= blockDownPoint.x && blockUpPoint.y <= playerPoint.y && playerPoint.y <= blockDownPoint.y {
@@ -66,7 +66,7 @@ func CheckPointCollision(playerPoint, blockUpPoint, blockDownPoint Point) bool {
 func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
 	nearestBlock = nil
 	var minY float64
-	for _, block := range Blocks {
+	for _, block := range player.room.Blocks {
 		if player.X+player.W >= block.X && player.X <= block.X+block.w {
 			if block.Y-player.Y < minY && player.Y <= block.Y {
 				minY = block.Y - player.Y
@@ -78,11 +78,11 @@ func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
 }
 
 func (player *Player) Jump() {
-	if Blocks[0].Vy != 0 {
-		player.Vy = -0.35 + Blocks[0].Vy
+	if player.room.Blocks[0].Dy != 0 {
+		player.Dy = -0.35 + player.room.Blocks[0].Dy
 		return
 	}
-	player.Vy = -0.35 // Change a vertical speed (for jump)
+	player.Dy = -0.35 // Change a vertical speed (for jump)
 }
 
 func (player *Player) SetPlayerOnPlate(block *Block) {
@@ -91,8 +91,8 @@ func (player *Player) SetPlayerOnPlate(block *Block) {
 }
 
 func (player *Player) Gravity(g float64, dt float64) {
-	player.Vy += g * dt
-	// player.Move(Vector{0, player.Vy})
+	player.Dy += g * dt
+	// player.Move(Vector{0, player.Dy})
 	// fmt.Printf("x: %f, y: %f\n", player.X, player.Y)
 	// nearestBlock := player.SelectNearestBlock()
 	// player.CheckCollision(nearestBlock, dt)
@@ -106,14 +106,14 @@ func (player *Player) CircleDraw() {
 	}
 }
 
-func FoundPlayer(id int) *Player {
-	for _, player := range Players {
-		if player.IdP == id {
-			return player
-		}
-	}
-	return nil
-}
+// func FoundPlayer(id int) *Player {
+// 	for _, player := range Players {
+// 		if player.IdP == id {
+// 			return player
+// 		}
+// 	}
+// 	return nil
+// }
 
 // Сдвиг персонажа вниз
 
@@ -129,7 +129,6 @@ func NewPlayer(conn *websocket.Conn) *Player {
 		out:        make(chan []byte),
 		commands:   make(chan *Command, 10),
 	}
-	Players = append(Players, newPlayer)
 	return newPlayer
 }
 
@@ -173,6 +172,9 @@ func (p *Player) Listen() {
 					return
 				}
 				fmt.Printf("Direction: %s, dt: %f\n", command.Direction, command.Delay)
+				if p.IdP == 1 {
+					p.IdP = 1
+				}
 				command.IdP = p.IdP
 				p.commands <- &command
 				payload, err := json.Marshal(command)
@@ -186,61 +188,6 @@ func (p *Player) Listen() {
 						player.SendMessage(&msg)
 					}
 				}
-			case "init":
-				// type BlocksAndPlayers struct {
-				// 	Blocks  []*Block  `json:"blocks`
-				// 	Players []*Player `json:"players`
-				// }
-				// blocks := FieldGenerator(100, 100, 10)
-				// for _, block := range blocks {
-				// 	p.room.Blocks = append(p.room.Blocks, block)
-				// }
-				// var players []*Player
-				// players = append(players, p) // The
-				// currentRoom := p.room
-				// p.SetPlayerOnPlate(currentRoom.Blocks[0])
-				// for _, player := range p.room.Players {
-				// 	if player == p {
-				// 		continue
-				// 	}
-				// 	players = append(players, player)
-				// 	player.SetPlayerOnPlate(currentRoom.Blocks[0])
-				// }
-				// blocksAndPlayers := BlocksAndPlayers{
-				// 	Blocks:  blocks,
-				// 	Players: players,
-				// }
-				// payload, err := json.Marshal(blocksAndPlayers)
-				// if err != nil {
-				// 	log.Println("Error blocks and players is occured", err)
-				// 	return
-				// }
-				// msg.Payload = payload
-				// temp := blocksAndPlayers.Players[0]
-				// blocksAndPlayers.Players[0] = blocksAndPlayers.Players[1]
-				// blocksAndPlayers.Players[1] = temp
-				// payload2, err := json.Marshal(blocksAndPlayers)
-				// if err != nil {
-				// 	log.Println("Error blocks and players is occured", err)
-				// 	return
-				// }
-				// msg2 := Message{
-				// 	Type:    "init",
-				// 	Payload: payload2,
-				// }
-
-				// p.room.Blocks = blocks
-				// for _, player := range currentRoom.Players {
-				// 	player.SetPlayerOnPlate(currentRoom.Blocks[0])
-				// }
-				// p.room.init <- struct{}{}
-				// for _, player := range currentRoom.Players {
-				// 	if player != p {
-				// 		player.SendMessage(&msg2)
-				// 		continue
-				// 	}
-				// 	player.SendMessage(&msg)
-				// }
 			case "map":
 				newBlocks := FieldGenerator(100, 100, 10)
 				for _, newBlock := range newBlocks {

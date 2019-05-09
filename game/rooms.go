@@ -2,15 +2,16 @@ package game
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"sync"
-	"time"
 )
 
 // type RoomController struct{}
 
 type Room struct {
 	ID         string
+	game       *Game
 	MaxPlayers int
 	Players    map[int]*Player
 	Blocks     []*Block
@@ -18,20 +19,19 @@ type Room struct {
 	register   chan *Player
 	unregister chan *Player
 	init       chan struct{}
-	ticker     *time.Ticker
+	finish     chan struct{}
 	// isRun      bool
 }
 
-var Rooms []*Room
-
-func NewRoom(maxPlayers int) *Room {
+func NewRoom(maxPlayers int, game *Game) *Room {
 	return &Room{
 		MaxPlayers: maxPlayers,
+		game:       game,
 		Players:    make(map[int]*Player),
 		register:   make(chan *Player),
 		unregister: make(chan *Player),
 		init:       make(chan struct{}, 1),
-		ticker:     time.NewTicker(1 * time.Second),
+		finish:     make(chan struct{}),
 	}
 }
 
@@ -47,6 +47,7 @@ func (room *Room) Run() {
 			delete(room.Players, player.IdP)
 			log.Printf("Player %d was remoted from room", player.IdP)
 			log.Printf("Count of players: %d", len(room.Players))
+			room.finish <- struct{}{}
 		case player := <-room.register:
 			player.IdP = len(room.Players)
 			room.Players[player.IdP] = player
@@ -58,68 +59,65 @@ func (room *Room) Run() {
 			}
 			// player.connection.SendMessage(&Message{"Connected", nil})
 		case <-room.init:
-			log.Println("room init")
-			type BlocksAndPlayers struct {
-				Blocks  []*Block  `json:"blocks"`
-				Players []*Player `json:"players"`
-			}
-			room.Blocks = FieldGenerator(HeightField-20, 2000, 2000*0.01)
-			var players []*Player
-			for _, p := range room.Players {
-				players = append(players, p) // The
-				p.SetPlayerOnPlate(room.Blocks[0])
-			}
-			blocksAndPlayers := BlocksAndPlayers{
-				Blocks:  room.Blocks,
-				Players: players,
-			}
-			payload, err := json.Marshal(blocksAndPlayers)
-			if err != nil {
-				log.Println("Error blocks and players is occured", err)
-				return
-			}
-			msg := &Message{
-				Type:    "init",
-				Payload: payload,
-			}
-			temp := blocksAndPlayers.Players[0]
-			blocksAndPlayers.Players[0] = blocksAndPlayers.Players[1]
-			blocksAndPlayers.Players[1] = temp
-			payload2, err := json.Marshal(blocksAndPlayers)
-			if err != nil {
-				log.Println("Error blocks and players is occured", err)
-				return
-			}
-			msg2 := &Message{
-				Type:    "init",
-				Payload: payload2,
-			}
-
-			// room.Blocks = blocks
-			// for _, player := range room.Players {
-			// 	player.SetPlayerOnPlate(room.Blocks[0])
-			// 	if player != p {
-			// 		player.SendMessage(&msg2)
-			// 		continue
-			// 	}
-			// 	player.SendMessage(&msg)
-			// }
-			room.Players[0].SendMessage(msg)
-			room.Players[1].SendMessage(msg2)
-			for {
-				// var wg sync.WaitGroup
-				for _, player := range room.Players {
-					// wg.Add(1)
-					Engine(player)
+			go func() {
+				log.Println("room init")
+				type BlocksAndPlayers struct {
+					Blocks  []*Block  `json:"blocks"`
+					Players []*Player `json:"players"`
 				}
-				// wg.Wait()
-			}
-			log.Println("wait finished")
-			// default:
-			// log.Println("tick")
-
-			// игровая механика
-			// взять у player'a команды и обработать их
+				room.Blocks = FieldGenerator(HeightField-20, 2000, 2000*0.01)
+				var players []*Player
+				for _, p := range room.Players {
+					players = append(players, p) // The
+					p.SetPlayerOnPlate(room.Blocks[0])
+				}
+				blocksAndPlayers := BlocksAndPlayers{
+					Blocks:  room.Blocks,
+					Players: players,
+				}
+				payload, err := json.Marshal(blocksAndPlayers)
+				if err != nil {
+					log.Println("Error blocks and players is occured", err)
+					return
+				}
+				msg := &Message{
+					Type:    "init",
+					Payload: payload,
+				}
+				temp := blocksAndPlayers.Players[0]
+				blocksAndPlayers.Players[0] = blocksAndPlayers.Players[1]
+				blocksAndPlayers.Players[1] = temp
+				payload2, err := json.Marshal(blocksAndPlayers)
+				if err != nil {
+					log.Println("Error blocks and players is occured", err)
+					return
+				}
+				msg2 := &Message{
+					Type:    "init",
+					Payload: payload2,
+				}
+				room.Players[0].SendMessage(msg)
+				room.Players[1].SendMessage(msg2)
+				for {
+					select {
+					case <-room.finish:
+						for _, player := range room.Players {
+							room.RemovePlayer(player)
+						}
+						if err := room.game.RemoveRoom(room); err != nil {
+							fmt.Print("Error:", err)
+							return
+						}
+					default:
+						// var wg sync.WaitGroup
+						for _, player := range room.Players {
+							// wg.Add(1)
+							Engine(player)
+						}
+						// wg.Wait()
+					}
+				}
+			}()
 
 		}
 	}
@@ -133,9 +131,10 @@ func (room *Room) AddPlayer(player *Player) {
 func (room *Room) RemovePlayer(player *Player) {
 
 	log.Println("Player was removed!")
-	player.room = nil
+
 	log.Printf("Data: id: %d\n", player.IdP)
 	room.unregister <- player
+	player.room = nil
 }
 
 // func InitGame(roomName string) {

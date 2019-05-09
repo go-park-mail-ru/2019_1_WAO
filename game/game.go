@@ -1,6 +1,7 @@
 package game
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -8,10 +9,6 @@ import (
 
 	"github.com/gorilla/websocket"
 )
-
-var Blocks []*Block
-var Commands []*Command
-var Players []*Player
 
 var WidthField float64 = 400
 var HeightField float64 = 700
@@ -35,8 +32,6 @@ func FieldGenerator(beginY float64, b float64, k uint16) (newBlocks []*Block) {
 		newBlocks = append(newBlocks, &Block{
 			X: currentX,
 			Y: currentY,
-			w: 90,
-			h: 15,
 		})
 		currentY -= p
 	}
@@ -49,23 +44,23 @@ func FieldGenerator(beginY float64, b float64, k uint16) (newBlocks []*Block) {
 
 // Scroll down the whole map
 
-func ScrollMap(delay float64) {
-	for _, block := range Blocks {
-		block.Y += block.Vy * delay
+func ScrollMap(delay float64, room *Room) {
+	for _, block := range room.Blocks {
+		block.Y += block.Dy * delay
 	}
 }
 
 // Функция изменения скорости
 
-func ProcessSpeed(command *Command) {
-	player := FoundPlayer(command.IdP)
-	player.Vy += (gravity * command.Delay)
+func ProcessSpeed(command *Command, room *Room) {
+	player := room.Players[command.IdP]
+	player.Dy += (gravity * command.Delay)
 }
 
 // Отрисовка по кругу
 
-func CircleDraw() {
-	for _, player := range Players {
+func CircleDraw(room *Room) {
+	for _, player := range room.Players {
 		if player.X > WidthField {
 			player.X = 0
 		} else if player.X < 0 {
@@ -74,14 +69,14 @@ func CircleDraw() {
 	}
 }
 
-func Collision(command *Command) {
-	var player *Player = FoundPlayer(command.IdP)
+func Collision(command *Command, room *Room) {
+	player := room.Players[command.IdP]
 	var plate *Block = player.SelectNearestBlock()
 	if plate == nil {
 		return
 	}
-	if player.Vy >= 0 {
-		if player.Y+player.Vy*command.Delay < plate.Y-15 {
+	if player.Dy >= 0 {
+		if player.Y+player.Dy*command.Delay < plate.Y-15 {
 			return
 		}
 		player.Y = plate.Y - 15
@@ -91,7 +86,8 @@ func Collision(command *Command) {
 
 func Engine(player *Player) {
 	// defer wg.Done()
-	CircleDraw()
+	room := player.room
+	CircleDraw(room)
 	var commands []*Command
 	select {
 	case command := <-player.commands:
@@ -103,28 +99,28 @@ func Engine(player *Player) {
 		// player = FoundPlayer(command.IdP)
 		fmt.Println("Command was catched")
 		if command.Direction == "LEFT" {
-			player.X -= player.Vx * command.Delay
+			player.X -= player.Dx * command.Delay
 
 		} else if command.Direction == "RIGHT" {
-			player.X += player.Vx * command.Delay
+			player.X += player.Dx * command.Delay
 		}
-		ProcessSpeed(command)
-		Collision(command)
-		player.Y += (player.Vy * command.Delay)
+		ProcessSpeed(command, room)
+		Collision(command, room)
+		player.Y += (player.Dy * command.Delay)
 	}
 	// zeroBlock := player.room.Blocks[0]
-	// fmt.Printf("Blocks[0]	-	x: %f, y: %f, vy: %f", zeroBlock.X, zeroBlock.Y, zeroBlock.Vy)
-	if player.room.Blocks[0].Vy != 0 {
+	// fmt.Printf("Blocks[0]	-	x: %f, y: %f, Dy: %f", zeroBlock.X, zeroBlock.Y, zeroBlock.Dy)
+	if player.room.Blocks[0].Dy != 0 {
 		if commands[0] != nil {
-			ScrollMap(commands[0].Delay)
+			ScrollMap(commands[0].Delay, room)
 		} else {
 			fmt.Println("nil command")
 		}
 	}
 	// for _, command := range commands {
-	// 	player.Y += (player.Vy * command.Delay)
+	// 	player.Y += (player.Dy * command.Delay)
 	// }
-	log.Printf("*Player* id%d	-	x: %f, y: %f, vx: %f, vy: %f\n", player.IdP, player.X, player.Y, player.Vx, player.Vy)
+	log.Printf("*Player* id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", player.IdP, player.X, player.Y, player.Dx, player.Dy)
 	// return this.state;
 }
 
@@ -159,7 +155,6 @@ func NewGame(maxRooms uint) *Game {
 
 func (g *Game) Run() {
 	log.Println("Main loop started")
-
 LOOP:
 	for {
 		player := <-g.register
@@ -171,7 +166,7 @@ LOOP:
 			}
 		}
 
-		room := NewRoom(2)
+		room := NewRoom(2, g)
 		g.AddRoom(room)
 
 		go room.Run()
@@ -187,4 +182,17 @@ func (g *Game) AddPlayer(player *Player) {
 
 func (g *Game) AddRoom(room *Room) {
 	g.rooms = append(g.rooms, room)
+}
+
+func (g *Game) RemoveRoom(room *Room) error {
+	rooms := &g.rooms
+	lastIndex := len(*rooms) - 1
+	for index, r := range g.rooms {
+		if r == room {
+			(*rooms)[index] = (*rooms)[lastIndex]
+			g.rooms = (*rooms)[:lastIndex]
+			return nil
+		}
+	}
+	return errors.New("The room is not found")
 }

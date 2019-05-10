@@ -19,7 +19,7 @@ type Room struct {
 	unregister chan *Player
 	init       chan struct{}
 	finish     chan struct{}
-	engineDone chan struct{}
+	mut        sync.Mutex
 	// isRun      bool
 }
 
@@ -44,7 +44,9 @@ func (room *Room) Run() {
 			// player.connection.Close()
 			log.Println("Unregistering...")
 			player.connection.Close()
+			room.mut.Lock()
 			delete(room.Players, player.IdP)
+			room.mut.Unlock()
 			log.Printf("Player %d was remoted from room\n", player.IdP)
 			log.Printf("Count of players: %d\n", len(room.Players))
 			if len(room.Players) == 0 {
@@ -101,7 +103,7 @@ func (room *Room) Run() {
 				room.Players[1].SendMessage(msg2)
 				for _, player := range room.Players {
 					// wg.Add(1)
-					go Engine(player, &room.engineDone)
+					go Engine(player)
 				}
 				for {
 					select {
@@ -125,7 +127,9 @@ func (room *Room) RemovePlayer(player *Player) {
 	log.Println("Player was removed!")
 
 	log.Printf("Data: id: %d\n", player.IdP)
+
 	room.unregister <- player
+	player.engineDone <- struct{}{}
 	player.room = nil
 }
 

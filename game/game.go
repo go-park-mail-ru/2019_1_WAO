@@ -80,11 +80,11 @@ func Collision(delay float64, player *Player) {
 	}
 }
 
-func Engine(player *Player, engineDone *chan struct{}) {
+func Engine(player *Player) {
 	// defer wg.Done()
 	for {
 		select {
-		case <-*engineDone:
+		case <-player.engineDone:
 			return
 		default:
 			CircleDraw(player)
@@ -131,7 +131,7 @@ type Connections map[*Player]*websocket.Conn
 type Game struct {
 	MaxRooms uint
 	rooms    []*Room
-	mutex    *sync.Mutex
+	mutex    sync.Mutex
 	register chan *Player
 }
 
@@ -169,11 +169,12 @@ func (g *Game) AddPlayer(player *Player) {
 }
 
 func (g *Game) AddRoom(room *Room) {
+	g.mutex.Lock()
 	g.rooms = append(g.rooms, room)
+	g.mutex.Unlock()
 }
 
 func (g *Game) RemoveRoom(room *Room) error {
-	room.engineDone <- struct{}{}
 	rooms := &g.rooms
 	lastIndex := len(*rooms) - 1
 	for index, r := range g.rooms {

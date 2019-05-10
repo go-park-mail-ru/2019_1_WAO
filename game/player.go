@@ -29,16 +29,17 @@ type Player struct {
 	connection *websocket.Conn `json:"-"`
 	room       *Room           `json:"-"`
 	// queue      *Queue          `json:"-"` // Commands queue for players
-	commands chan *Command `json:"-"`
-	in       chan []byte   `json:"-"`
-	out      chan []byte   `json:"-"`
-	IdP      int           `json:"idP"`
-	X        float64       `json:"x"`
-	Y        float64       `json:"y"`
-	Dx       float64       `json:"dx"`
-	Dy       float64       `json:"dy"`
-	W        float64       `json:"-"`
-	H        float64       `json:"-"`
+	commands   chan *Command `json:"-"`
+	engineDone chan struct{} `json:"-"`
+	in         chan []byte   `json:"-"`
+	out        chan []byte   `json:"-"`
+	IdP        int           `json:"idP"`
+	X          float64       `json:"x"`
+	Y          float64       `json:"y"`
+	Dx         float64       `json:"dx"`
+	Dy         float64       `json:"dy"`
+	W          float64       `json:"-"`
+	H          float64       `json:"-"`
 	// conn *websocket.Conn
 }
 
@@ -129,6 +130,7 @@ func NewPlayer(conn *websocket.Conn) *Player {
 		in:         make(chan []byte),
 		out:        make(chan []byte),
 		commands:   make(chan *Command, 10),
+		engineDone: make(chan struct{}, 1),
 		Dx:         0.2,
 		Dy:         0.002,
 	}

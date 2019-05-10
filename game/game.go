@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -13,8 +14,22 @@ import (
 var WidthField float64 = 400
 var HeightField float64 = 700
 
+var randomGame *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano())) // Randomizer initialize
 // var koefHeightOfMaxGenerateSlice float64 = 2000
 var gravity float64 = 0.0004
+
+var koefScrollSpeed float64 = 0.5 // Скорость с которой все объекты будут падать вниз
+// this.state = true;
+// this.stateScrollMap = false;  // Нужен для отслеживания другими классами состояния скроллинга
+// this.stateGenerateNewMap = false; // Нужен для отслеживания другими классами момента когда надо добавить к своей карте вновь сгенерированный кусок this.state.newPlates
+// Настройки генерации карты
+var koefGeneratePlates float64 = 0.01
+var koefHeightOfMaxGenerateSlice int = 2000
+
+var leftIndent float64 = 91
+var rightIndent float64 = 91
+
+// this.idPhysicBlockCounter = 0;  // Уникальный идентификатор нужен для отрисовки новых объектов
 
 func GetParams() (float64, uint16) {
 	return (HeightField - 20) - 20, 5
@@ -23,15 +38,15 @@ func GetParams() (float64, uint16) {
 func FieldGenerator(beginY float64, b float64, k uint16) (newBlocks []*Block) {
 	// beginY was sended as the parameter
 	p := b / float64(k) // Плотность
-	r := rand.New(rand.NewSource(99))
 	var currentX float64
 	currentY := beginY
 	var i uint16
 	for i = 0; i < k; i++ {
-		currentX = r.Float64()*(WidthField-91) + 1.0
+		currentX = randomGame.Float64() * (((WidthField - rightIndent) - leftIndent + 1) + leftIndent)
 		newBlocks = append(newBlocks, &Block{
-			X: currentX,
-			Y: currentY,
+			X:  currentX,
+			Y:  currentY,
+			Dy: 0,
 		})
 		currentY -= p
 	}
@@ -179,8 +194,11 @@ func (g *Game) RemoveRoom(room *Room) error {
 	lastIndex := len(*rooms) - 1
 	for index, r := range g.rooms {
 		if r == room {
+			g.mutex.Lock()
 			(*rooms)[index] = (*rooms)[lastIndex]
 			g.rooms = (*rooms)[:lastIndex]
+			g.mutex.Unlock()
+			fmt.Println("The room was deleted")
 			return nil
 		}
 	}

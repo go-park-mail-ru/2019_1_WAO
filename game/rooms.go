@@ -20,7 +20,6 @@ type Room struct {
 	init       chan struct{}
 	finish     chan struct{}
 	mut        sync.Mutex
-	// isRun      bool
 }
 
 func NewRoom(maxPlayers int, game *Game) *Room {
@@ -37,13 +36,10 @@ func NewRoom(maxPlayers int, game *Game) *Room {
 
 func (room *Room) Run() {
 	log.Println("Room loop started")
-	// room.isRun = false
 	for {
 		select {
 		case player := <-room.unregister:
-			// player.connection.Close()
 			log.Println("Unregistering...")
-			player.connection.Close()
 			room.mut.Lock()
 			delete(room.Players, player.IdP)
 			room.mut.Unlock()
@@ -54,13 +50,14 @@ func (room *Room) Run() {
 			}
 		case player := <-room.register:
 			player.IdP = len(room.Players)
+			room.mut.Lock()
 			room.Players[player.IdP] = player
+			room.mut.Unlock()
 			log.Printf("Player %d added to game\n", player.IdP)
 			log.Printf("len(room.Players): %d, room.MaxPlayers: %d\n", len(room.Players), room.MaxPlayers)
 			if len(room.Players) == room.MaxPlayers {
 				room.init <- struct{}{}
 			}
-			// player.connection.SendMessage(&Message{"Connected", nil})
 		case <-room.init:
 			go func() {
 				log.Println("room init")
@@ -102,7 +99,6 @@ func (room *Room) Run() {
 				room.Players[0].SendMessage(msg)
 				room.Players[1].SendMessage(msg2)
 				for _, player := range room.Players {
-					// wg.Add(1)
 					go Engine(player)
 				}
 				<-room.finish
@@ -118,22 +114,10 @@ func (room *Room) AddPlayer(player *Player) {
 	room.register <- player
 }
 
-func (room *Room) RemovePlayer(player *Player) {
+func RemovePlayer(player *Player) {
 
-	log.Println("Player was removed!")
-
-	log.Printf("Data: id: %d\n", player.IdP)
-
-	room.unregister <- player
+	log.Printf("id deleting player: %d\n", player.IdP)
+	player.room.unregister <- player
 	player.engineDone <- struct{}{}
-	player.room = nil
+	log.Println("Player was removed!")
 }
-
-// func InitGame(roomName string) {
-// 	room := Rooms[roomName]
-// 	if room == nil {
-// 		fmt.Println("Error with game init was occured")
-// 		return
-// 	}
-// 	game.GameLoop(&room) // Init a cycle for the room
-// }

@@ -28,34 +28,18 @@ type Message struct {
 type Player struct {
 	connection *websocket.Conn `json:"-"`
 	room       *Room           `json:"-"`
-	// queue      *Queue          `json:"-"` // Commands queue for players
-	commands   chan *Command `json:"-"`
-	engineDone chan struct{} `json:"-"`
-	in         chan []byte   `json:"-"`
-	out        chan []byte   `json:"-"`
-	IdP        int           `json:"idP"`
-	X          float64       `json:"x"`
-	Y          float64       `json:"y"`
-	Dx         float64       `json:"dx"`
-	Dy         float64       `json:"dy"`
-	W          float64       `json:"-"`
-	H          float64       `json:"-"`
+	commands   chan *Command   `json:"-"`
+	engineDone chan struct{}   `json:"-"`
+	out        chan []byte     `json:"-"`
+	IdP        int             `json:"idP"`
+	X          float64         `json:"x"`
+	Y          float64         `json:"y"`
+	Dx         float64         `json:"dx"`
+	Dy         float64         `json:"dy"`
+	W          float64         `json:"-"`
+	H          float64         `json:"-"`
 	// conn *websocket.Conn
 }
-
-// func (player *Player) Move(vector Vector, dt float64) {
-// 	player.X += vector.x * dt
-// 	player.Y += vector.y * dt
-// 	fmt.Printf("x: %f, y: %f\n", player.X, player.Y)
-// }
-
-// func Move(command *Command) {
-// 	var player *Player = FoundPlayer(command.IdP)
-// 	if player == nil {
-// 		return
-// 	}
-// 	player.Y += (player.Dy * command.Delay)
-// }
 
 func CheckPointCollision(playerPoint, blockUpPoint, blockDownPoint Point) bool {
 	if blockUpPoint.x <= playerPoint.x && playerPoint.x <= blockDownPoint.x && blockUpPoint.y <= playerPoint.y && playerPoint.y <= blockDownPoint.y {
@@ -92,14 +76,6 @@ func (player *Player) SetPlayerOnPlate(block *Block) {
 	player.X = block.X + block.w/2 // Отцентровка игрока по середине
 }
 
-func (player *Player) Gravity(g float64, dt float64) {
-	player.Dy += g * dt
-	// player.Move(Vector{0, player.Dy})
-	// fmt.Printf("x: %f, y: %f\n", player.X, player.Y)
-	// nearestBlock := player.SelectNearestBlock()
-	// player.CheckCollision(nearestBlock, dt)
-}
-
 func (player *Player) CircleDraw() {
 	if player.X > WidthField {
 		player.X = 0
@@ -108,26 +84,9 @@ func (player *Player) CircleDraw() {
 	}
 }
 
-// func FoundPlayer(id int) *Player {
-// 	for _, player := range Players {
-// 		if player.IdP == id {
-// 			return player
-// 		}
-// 	}
-// 	return nil
-// }
-
-// Сдвиг персонажа вниз
-
-// move(command) {
-//     let player = this.foundPlayer(command.idP);
-//     player.y += (player.dy * command.delay);
-//   }
-
 func NewPlayer(conn *websocket.Conn) *Player {
 	newPlayer := &Player{
 		connection: conn,
-		in:         make(chan []byte),
 		out:        make(chan []byte),
 		commands:   make(chan *Command, 10),
 		engineDone: make(chan struct{}, 1),
@@ -139,7 +98,7 @@ func NewPlayer(conn *websocket.Conn) *Player {
 
 func (p *Player) Listen() {
 	go func() {
-		defer p.room.RemovePlayer(p)
+		defer RemovePlayer(p)
 		for {
 			_, buffer, err := p.connection.ReadMessage()
 			if err != nil {
@@ -154,18 +113,16 @@ func (p *Player) Listen() {
 			}
 			if _, ok := err.(*net.OpError); ok {
 				log.Println("My Life is a pain")
-				// p.room.RemovePlayer(p)
-				log.Printf("Player %s disconnected", p.IdP)
+				log.Printf("Player %s disconnected\n", p.IdP)
 				return
 			}
 
 			if websocket.IsUnexpectedCloseError(err) {
-				// p.room.RemovePlayer(p)
-				log.Printf("Player %s disconnected", p.IdP)
+				log.Printf("Player %s disconnected\n", p.IdP)
 				return
 			}
 			if err != nil {
-				log.Printf("cannot read json: %v", err)
+				log.Printf("cannot read json: %v\n", err)
 				continue
 			}
 
@@ -194,11 +151,24 @@ func (p *Player) Listen() {
 					}
 				}
 			case "map":
-				newBlocks := FieldGenerator(100, 100, 10)
-				for _, newBlock := range newBlocks {
-					p.room.Blocks = append(p.room.Blocks, newBlock)
+				room := p.room
+				lastBlock := room.Blocks[len(room.Blocks)-1]
+				beginY := lastBlock.Y - 20
+				b := float64(koefHeightOfMaxGenerateSlice) + lastBlock.Y
+				k := uint16(koefGeneratePlates * (float64(koefHeightOfMaxGenerateSlice) + lastBlock.Y))
+				newBlocks := FieldGenerator(beginY, b, k)
+				room.Blocks = append(room.Blocks, newBlocks...)
+				var players []*Player
+				for _, player := range room.Players {
+					players = append(players, player)
 				}
-				buffer, err := json.Marshal(newBlocks)
+				buffer, err := json.Marshal(struct {
+					Blocks  []*Block  `json:"blocks"`
+					Players []*Player `json:"players"`
+				}{
+					Blocks:  newBlocks,
+					Players: players,
+				})
 				if err != nil {
 					fmt.Println("Error encoding new blocks", err)
 					return
@@ -207,31 +177,13 @@ func (p *Player) Listen() {
 					Type:    "map",
 					Payload: buffer,
 				}
-
-				// BlocksToSend, err := json.Marshal(JsonNewBlocks)
-				// if err != nil {
-				// 	fmt.Println("Error encoding new blocks", err)
-				// 	return
-				// }
 				for _, player := range p.room.Players {
 					player.SendMessage(&JsonNewBlocks)
 				}
 			case "lose":
 				fmt.Println("!Player lose!")
-				p.room.RemovePlayer(p)
-				// case "blocks":
-				// 	var blocks []game.Block
-				// 	if err := json.Unmarshal([]byte(msg.Payload), &blocks); err != nil {
-				// 		fmt.Println("Moving error was occured", err)
-				// 		return
-				// 	}
-				// 	fmt.Println("Blocks:")
-				// 	for index, block := range blocks {
-				// 		fmt.Printf("*Block %d*\nx: %f, y: %f\n", index, block.X, block.Y)
-				// 	}
-
+				return
 			}
-			// p.in <- message
 		}
 	}()
 
@@ -239,8 +191,6 @@ func (p *Player) Listen() {
 		select {
 		case message := <-p.out:
 			p.connection.WriteMessage(websocket.TextMessage, message)
-		case message := <-p.in:
-			log.Printf("Income: %#v", message)
 		}
 	}
 }

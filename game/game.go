@@ -52,31 +52,27 @@ func ScrollMap(delay float64, room *Room) {
 
 // Функция изменения скорости
 
-func ProcessSpeed(command *Command, room *Room) {
-	player := room.Players[command.IdP]
-	player.Dy += (gravity * command.Delay)
+func ProcessSpeed(delay float64, player *Player) {
+	player.Dy += (gravity * delay)
 }
 
 // Отрисовка по кругу
 
-func CircleDraw(room *Room) {
-	for _, player := range room.Players {
-		if player.X > WidthField {
-			player.X = 0
-		} else if player.X < 0 {
-			player.X = WidthField
-		}
+func CircleDraw(player *Player) {
+	if player.X > WidthField {
+		player.X = 0
+	} else if player.X < 0 {
+		player.X = WidthField
 	}
 }
 
-func Collision(command *Command, room *Room) {
-	player := room.Players[command.IdP]
+func Collision(delay float64, player *Player) {
 	var plate *Block = player.SelectNearestBlock()
 	if plate == nil {
 		return
 	}
 	if player.Dy >= 0 {
-		if player.Y+player.Dy*command.Delay < plate.Y-15 {
+		if player.Y+player.Dy*delay < plate.Y-15 {
 			return
 		}
 		player.Y = plate.Y - 15
@@ -84,44 +80,36 @@ func Collision(command *Command, room *Room) {
 	}
 }
 
-func Engine(player *Player) {
+func Engine(player *Player, engineDone *chan struct{}) {
 	// defer wg.Done()
-	room := player.room
-	CircleDraw(room)
-	var commands []*Command
-	select {
-	case command := <-player.commands:
-		// command := commands[i]
-		if command == nil {
-			fmt.Println("Command's error was occured")
+	for {
+		select {
+		case <-*engineDone:
 			return
-		}
-		// player = FoundPlayer(command.IdP)
-		fmt.Println("Command was catched")
-		if command.Direction == "LEFT" {
-			player.X -= player.Dx * command.Delay
+		default:
+			CircleDraw(player)
+			select {
+			case command := <-player.commands:
+				// command := commands[i]
+				if command == nil {
+					fmt.Println("Command's error was occured")
+					return
+				}
+				// player = FoundPlayer(command.IdP)
+				fmt.Println("Command was catched")
+				if command.Direction == "LEFT" {
+					player.X -= player.Dx * command.Delay
 
-		} else if command.Direction == "RIGHT" {
-			player.X += player.Dx * command.Delay
-		}
-		ProcessSpeed(command, room)
-		Collision(command, room)
-		player.Y += (player.Dy * command.Delay)
-	}
-	// zeroBlock := player.room.Blocks[0]
-	// fmt.Printf("Blocks[0]	-	x: %f, y: %f, Dy: %f", zeroBlock.X, zeroBlock.Y, zeroBlock.Dy)
-	if player.room.Blocks[0].Dy != 0 {
-		if commands[0] != nil {
-			ScrollMap(commands[0].Delay, room)
-		} else {
-			fmt.Println("nil command")
+				} else if command.Direction == "RIGHT" {
+					player.X += player.Dx * command.Delay
+				}
+				ProcessSpeed(command.Delay, player)
+				Collision(command.Delay, player)
+				player.Y += (player.Dy * command.Delay)
+			}
+			log.Printf("*Player* id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", player.IdP, player.X, player.Y, player.Dx, player.Dy)
 		}
 	}
-	// for _, command := range commands {
-	// 	player.Y += (player.Dy * command.Delay)
-	// }
-	log.Printf("*Player* id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", player.IdP, player.X, player.Y, player.Dx, player.Dy)
-	// return this.state;
 }
 
 // Main gameloop for each player
@@ -176,7 +164,7 @@ LOOP:
 }
 
 func (g *Game) AddPlayer(player *Player) {
-	log.Printf("Player %d queued to add", player.IdP)
+	log.Println("Player %d queued to add")
 	g.register <- player
 }
 
@@ -185,6 +173,7 @@ func (g *Game) AddRoom(room *Room) {
 }
 
 func (g *Game) RemoveRoom(room *Room) error {
+	room.engineDone <- struct{}{}
 	rooms := &g.rooms
 	lastIndex := len(*rooms) - 1
 	for index, r := range g.rooms {

@@ -19,6 +19,7 @@ type Room struct {
 	unregister chan *Player
 	init       chan struct{}
 	finish     chan struct{}
+	engineDone chan struct{}
 	// isRun      bool
 }
 
@@ -44,15 +45,16 @@ func (room *Room) Run() {
 			log.Println("Unregistering...")
 			player.connection.Close()
 			delete(room.Players, player.IdP)
-			log.Printf("Player %d was remoted from room", player.IdP)
-			log.Printf("Count of players: %d", len(room.Players))
-			// room.finish <- struct{}{}
+			log.Printf("Player %d was remoted from room\n", player.IdP)
+			log.Printf("Count of players: %d\n", len(room.Players))
+			if len(room.Players) == 0 {
+				room.finish <- struct{}{}
+			}
 		case player := <-room.register:
 			player.IdP = len(room.Players)
 			room.Players[player.IdP] = player
 			log.Printf("Player %d added to game\n", player.IdP)
-			log.Printf("Count of players: %d", len(room.Players))
-			log.Printf("len(room.Players): %d, room.MaxPlayers: %d", len(room.Players), room.MaxPlayers)
+			log.Printf("len(room.Players): %d, room.MaxPlayers: %d\n", len(room.Players), room.MaxPlayers)
 			if len(room.Players) == room.MaxPlayers {
 				room.init <- struct{}{}
 			}
@@ -97,17 +99,14 @@ func (room *Room) Run() {
 				}
 				room.Players[0].SendMessage(msg)
 				room.Players[1].SendMessage(msg2)
+				for _, player := range room.Players {
+					// wg.Add(1)
+					go Engine(player, &room.engineDone)
+				}
 				for {
 					select {
 					case <-room.finish:
 						room.game.RemoveRoom(room)
-					default:
-						// var wg sync.WaitGroup
-						for _, player := range room.Players {
-							// wg.Add(1)
-							Engine(player)
-						}
-						// wg.Wait()
 					}
 				}
 			}()

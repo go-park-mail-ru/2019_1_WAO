@@ -78,8 +78,9 @@ func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
 }
 
 func (player *Player) Jump() {
-	if player.room.Blocks[0].Dy != 0 {
-		player.Dy = -0.35 + player.room.Blocks[0].Dy
+	anyBlockDy := player.room.Blocks[0].Dy
+	if anyBlockDy != 0 {
+		player.Dy = -0.35 + anyBlockDy
 		return
 	}
 	player.Dy = -0.35 // Change a vertical speed (for jump)
@@ -128,6 +129,8 @@ func NewPlayer(conn *websocket.Conn) *Player {
 		in:         make(chan []byte),
 		out:        make(chan []byte),
 		commands:   make(chan *Command, 10),
+		Dx:         0.2,
+		Dy:         0.002,
 	}
 	return newPlayer
 }

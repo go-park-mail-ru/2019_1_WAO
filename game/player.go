@@ -26,19 +26,20 @@ type Message struct {
 }
 
 type Player struct {
-	connection *websocket.Conn `json:"-"`
-	room       *Room           `json:"-"`
-	commands   chan *Command   `json:"-"`
-	engineDone chan struct{}   `json:"-"`
-	out        chan []byte     `json:"-"`
-	IdP        int             `json:"idP"`
-	X          float64         `json:"x"`
-	Y          float64         `json:"y"`
-	Dx         float64         `json:"dx"`
-	Dy         float64         `json:"dy"`
-	W          float64         `json:"-"`
-	H          float64         `json:"-"`
-	// conn *websocket.Conn
+	connection         *websocket.Conn `json:"-"`
+	room               *Room           `json:"-"`
+	commands           chan *Command   `json:"-"`
+	engineDone         chan struct{}   `json:"-"`
+	mapPlayerListenEnd chan struct{}   `json:"-"`
+	canvas             *Canvas         `json:"-"`
+	out                chan []byte     `json:"-"`
+	IdP                int             `json:"idP"`
+	X                  float64         `json:"x"`
+	Y                  float64         `json:"y"`
+	Dx                 float64         `json:"dx"`
+	Dy                 float64         `json:"dy"`
+	W                  float64         `json:"-"`
+	H                  float64         `json:"-"`
 }
 
 func CheckPointCollision(playerPoint, blockUpPoint, blockDownPoint Point) bool {
@@ -86,12 +87,17 @@ func (player *Player) CircleDraw() {
 
 func NewPlayer(conn *websocket.Conn) *Player {
 	newPlayer := &Player{
-		connection: conn,
-		out:        make(chan []byte),
-		commands:   make(chan *Command, 10),
-		engineDone: make(chan struct{}, 1),
-		Dx:         0.2,
-		Dy:         0.002,
+		connection:         conn,
+		out:                make(chan []byte),
+		commands:           make(chan *Command, 10),
+		engineDone:         make(chan struct{}, 1),
+		mapPlayerListenEnd: make(chan struct{}),
+		Dx:                 0.2,
+		Dy:                 0.002,
+		canvas: &Canvas{
+			y:  0,
+			dy: 0,
+		},
 	}
 	return newPlayer
 }
@@ -150,36 +156,6 @@ func (p *Player) Listen() {
 						player.SendMessage(&msg)
 					}
 				}
-			case "map":
-				room := p.room
-				lastBlock := room.Blocks[len(room.Blocks)-1]
-				beginY := lastBlock.Y - 20
-				b := float64(koefHeightOfMaxGenerateSlice) + lastBlock.Y
-				k := uint16(koefGeneratePlates * (float64(koefHeightOfMaxGenerateSlice) + lastBlock.Y))
-				newBlocks := FieldGenerator(beginY, b, k)
-				room.Blocks = append(room.Blocks, newBlocks...)
-				var players []*Player
-				for _, player := range room.Players {
-					players = append(players, player)
-				}
-				buffer, err := json.Marshal(struct {
-					Blocks  []*Block  `json:"blocks"`
-					Players []*Player `json:"players"`
-				}{
-					Blocks:  newBlocks,
-					Players: players,
-				})
-				if err != nil {
-					fmt.Println("Error encoding new blocks", err)
-					return
-				}
-				JsonNewBlocks := Message{
-					Type:    "map",
-					Payload: buffer,
-				}
-				for _, player := range p.room.Players {
-					player.SendMessage(&JsonNewBlocks)
-				}
 			case "lose":
 				fmt.Println("!Player lose!")
 				return
@@ -187,6 +163,9 @@ func (p *Player) Listen() {
 		}
 	}()
 
+	go func() {
+
+	}()
 	for {
 		select {
 		case message := <-p.out:

@@ -9,28 +9,31 @@ import (
 // type RoomController struct{}
 
 type Room struct {
-	ID         string
-	game       *Game
-	MaxPlayers int
-	Players    map[int]*Player
-	Blocks     []*Block
-	mutex      *sync.Mutex
-	register   chan *Player
-	unregister chan *Player
-	init       chan struct{}
-	finish     chan struct{}
-	mut        sync.Mutex
+	ID                   string
+	game                 *Game
+	MaxPlayers           int
+	Players              map[int]*Player
+	Blocks               []*Block
+	register             chan *Player
+	unregister           chan *Player
+	canvasControllerDone chan struct{}
+	init                 chan struct{}
+	finish               chan struct{}
+	mutex                sync.Mutex
+	stateScrollMap       bool
 }
 
 func NewRoom(maxPlayers int, game *Game) *Room {
 	return &Room{
-		MaxPlayers: maxPlayers,
-		game:       game,
-		Players:    make(map[int]*Player),
-		register:   make(chan *Player),
-		unregister: make(chan *Player),
-		init:       make(chan struct{}, 1),
-		finish:     make(chan struct{}, 1),
+		MaxPlayers:           maxPlayers,
+		game:                 game,
+		Players:              make(map[int]*Player),
+		register:             make(chan *Player),
+		unregister:           make(chan *Player),
+		init:                 make(chan struct{}, 1),
+		finish:               make(chan struct{}, 1),
+		canvasControllerDone: make(chan struct{}, 1),
+		stateScrollMap:       false,
 	}
 }
 
@@ -40,9 +43,9 @@ func (room *Room) Run() {
 		select {
 		case player := <-room.unregister:
 			log.Println("Unregistering...")
-			room.mut.Lock()
+			room.mutex.Lock()
 			delete(room.Players, player.IdP)
-			room.mut.Unlock()
+			room.mutex.Unlock()
 			log.Printf("Player %d was remoted from room\n", player.IdP)
 			log.Printf("Count of players: %d\n", len(room.Players))
 			if len(room.Players) == 0 {
@@ -50,9 +53,9 @@ func (room *Room) Run() {
 			}
 		case player := <-room.register:
 			player.IdP = len(room.Players)
-			room.mut.Lock()
+			room.mutex.Lock()
 			room.Players[player.IdP] = player
-			room.mut.Unlock()
+			room.mutex.Unlock()
 			log.Printf("Player %d added to game\n", player.IdP)
 			log.Printf("len(room.Players): %d, room.MaxPlayers: %d\n", len(room.Players), room.MaxPlayers)
 			if len(room.Players) == room.MaxPlayers {
@@ -61,6 +64,7 @@ func (room *Room) Run() {
 		case <-room.init:
 			go func() {
 				log.Println("room init")
+
 				type BlocksAndPlayers struct {
 					Blocks  []*Block  `json:"blocks"`
 					Players []*Player `json:"players"`
@@ -70,6 +74,7 @@ func (room *Room) Run() {
 				for _, p := range room.Players {
 					players = append(players, p) // The
 					p.SetPlayerOnPlate(room.Blocks[0])
+					go p.MapPlayerListen()
 				}
 				blocksAndPlayers := BlocksAndPlayers{
 					Blocks:  room.Blocks,
@@ -96,13 +101,14 @@ func (room *Room) Run() {
 					Type:    "init",
 					Payload: payload2,
 				}
+				go room.CanvasController()
 				room.Players[0].SendMessage(msg)
 				room.Players[1].SendMessage(msg2)
 				for _, player := range room.Players {
 					go Engine(player)
 				}
 				<-room.finish
-				room.game.RemoveRoom(room)
+				room.canvasControllerDone <- struct{}{}
 			}()
 
 		}
@@ -119,5 +125,6 @@ func RemovePlayer(player *Player) {
 	log.Printf("id deleting player: %d\n", player.IdP)
 	player.room.unregister <- player
 	player.engineDone <- struct{}{}
+	player.mapPlayerListenEnd <- struct{}{}
 	log.Println("Player was removed!")
 }

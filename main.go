@@ -29,7 +29,6 @@ func SocketFunc(w http.ResponseWriter, r *http.Request) {
 
 	// !!!
 	player := game.NewPlayer(ws)
-	go player.Listen()
 	GameController.AddPlayer(player)
 }
 

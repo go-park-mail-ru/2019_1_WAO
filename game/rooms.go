@@ -105,12 +105,8 @@ func (room *Room) Run() {
 					// wg.Add(1)
 					go Engine(player)
 				}
-				for {
-					select {
-					case <-room.finish:
-						room.game.RemoveRoom(room)
-					}
-				}
+				<-room.finish
+				room.game.RemoveRoom(room)
 			}()
 
 		}

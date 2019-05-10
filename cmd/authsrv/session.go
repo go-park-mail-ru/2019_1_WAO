@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"errors"
 	"log"
 	"time"
@@ -17,7 +16,7 @@ import (
 type User struct {
 	ID       int    `json:"id, string, omitempty"`
 	Email    string `json:"email, omitempty"`
-	password string `json:"password, omitempty"`
+	password string `json:"-"`
 	Nick     string `json:"nickname, omitempty"`
 	Score    int    `json:"score, string, omitempty"`
 	Games    int    `json:"games, string, omitempty"`
@@ -26,11 +25,13 @@ type User struct {
 }
 
 type SessionManager struct {
+	// Definition DateBase
 	// sessions map[string]*auth.UserData
 }
 
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
+		//Initialize DataBase
 		// sessions: map[string]*auth.UserData{},
 	}
 }
@@ -51,31 +52,19 @@ func generateToken(in *auth.UserData) (token string, err error) {
 
 // Create JWT for user
 func (sm *SessionManager) Create(ctx context.Context, in *auth.UserData) (*auth.Token, error) {
-	log.Println("INPUT  ", in)
-	row := db.QueryRow(`SELECT email, nickname, password FROM users WHERE nickname = $1 AND password = $2`, in.Login, in.Password)
-
-	user := User{}
-	switch err := row.Scan(&user.Email, &user.Nick, &user.password); err {
-	case sql.ErrNoRows:
-		log.Println("No rows were returned!")
-		return nil, errors.New(`{"error": "Invalid login or password"}`)
-	case nil:
-		log.Println("call Create", in)
-		token, err := generateToken(in)
-		if err != nil {
-			log.Println("Token does not create:", err.Error())
-			return nil, err
-		}
-		id := &auth.Token{
-			Value: token,
-		}
-		// sm.sessions[id.Value] = in
-		log.Println("Token create: ", id.Value)
-		return id, nil
-	default:
-		log.Println("Method GetUser: ", err)
+	log.Println("call Create", in)
+	token, err := generateToken(in)
+	if err != nil {
+		log.Println("Token does not create:", err.Error())
 		return nil, err
 	}
+	id := &auth.Token{
+		Value: token,
+	}
+	//Add token to White list of DataBase
+	log.Println("Token create: ", id.Value)
+	return id, nil
+
 }
 
 // Check validation of token
@@ -115,8 +104,6 @@ func (sm *SessionManager) Check(ctx context.Context, tokenString *auth.Token) (*
 // Delete token
 func (sm *SessionManager) Delete(ctx context.Context, in *auth.Token) (*auth.Nothing, error) {
 	log.Println("call Delete", in)
-	// sm.mu.Lock()
-	// defer sm.mu.Unlock()
-	// delete(sm.sessions, in.Value)
+	//Delete from WhiteList of DataBase
 	return &auth.Nothing{Null: true}, nil
 }

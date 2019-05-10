@@ -124,7 +124,9 @@ func RemovePlayer(player *Player) {
 
 	log.Printf("id deleting player: %d\n", player.IdP)
 	player.room.unregister <- player
+	player.messagesClose <- struct{}{}
 	player.engineDone <- struct{}{}
 	player.mapPlayerListenEnd <- struct{}{}
+
 	log.Println("Player was removed!")
 }

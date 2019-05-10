@@ -30,6 +30,7 @@ type Player struct {
 	room               *Room           `json:"-"`
 	commands           chan *Command   `json:"-"`
 	engineDone         chan struct{}   `json:"-"`
+	messagesClose      chan struct{}   `json"-"`
 	mapPlayerListenEnd chan struct{}   `json:"-"`
 	canvas             *Canvas         `json:"-"`
 	out                chan []byte     `json:"-"`
@@ -91,6 +92,7 @@ func NewPlayer(conn *websocket.Conn) *Player {
 		out:                make(chan []byte),
 		commands:           make(chan *Command, 10),
 		engineDone:         make(chan struct{}, 1),
+		messagesClose:      make(chan struct{}),
 		mapPlayerListenEnd: make(chan struct{}),
 		Dx:                 0.2,
 		Dy:                 0.002,
@@ -140,9 +142,6 @@ func (p *Player) Listen() {
 					return
 				}
 				fmt.Printf("Direction: %s, dt: %f\n", command.Direction, command.Delay)
-				if p.IdP == 1 {
-					p.IdP = 1
-				}
 				command.IdP = p.IdP
 				p.commands <- &command
 				payload, err := json.Marshal(command)
@@ -163,13 +162,12 @@ func (p *Player) Listen() {
 		}
 	}()
 
-	go func() {
-
-	}()
 	for {
 		select {
 		case message := <-p.out:
 			p.connection.WriteMessage(websocket.TextMessage, message)
+		case <-p.messagesClose:
+			return
 		}
 	}
 }

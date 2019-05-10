@@ -100,12 +100,10 @@ func Engine(player *Player) {
 			CircleDraw(player)
 			select {
 			case command := <-player.commands:
-				// command := commands[i]
 				if command == nil {
 					fmt.Println("Command's error was occured")
 					return
 				}
-				// player = FoundPlayer(command.IdP)
 				fmt.Println("Command was catched")
 				if command.Direction == "LEFT" {
 					player.X -= player.Dx * command.Delay
@@ -116,7 +114,7 @@ func Engine(player *Player) {
 				ProcessSpeed(command.Delay, player)
 				Collision(command.Delay, player)
 				player.Y += (player.Dy * command.Delay)
-				player.canvas.y += player.canvas.dy
+				player.canvas.y += player.canvas.dy * command.Delay
 			}
 			log.Printf("*Player* id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", player.IdP, player.X, player.Y, player.Dx, player.Dy)
 		}

@@ -1,6 +1,7 @@
 package game
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -30,10 +31,6 @@ var rightIndent float64 = 91
 
 // this.idPhysicBlockCounter = 0;  // Уникальный идентификатор нужен для отрисовки новых объектов
 
-func GetParams() (float64, uint16) {
-	return (HeightField - 20) - 20, 5
-}
-
 func FieldGenerator(beginY float64, b float64, k uint16) (newBlocks []*Block) {
 	// beginY was sended as the parameter
 	p := b / float64(k) // Плотность
@@ -46,6 +43,8 @@ func FieldGenerator(beginY float64, b float64, k uint16) (newBlocks []*Block) {
 			X:  currentX,
 			Y:  currentY,
 			Dy: 0,
+			w:  90,
+			h:  15,
 		})
 		currentY -= p
 	}
@@ -63,7 +62,9 @@ func ScrollMap(delay float64, room *Room) {
 // Функция изменения скорости
 
 func ProcessSpeed(delay float64, player *Player) {
+	player.room.mutex.Lock()
 	player.Dy += (gravity * delay)
+	player.room.mutex.Unlock()
 }
 
 // Отрисовка по кругу
@@ -82,10 +83,12 @@ func Collision(delay float64, player *Player) {
 		return
 	}
 	if player.Dy >= 0 {
-		if player.Y+player.Dy*delay < plate.Y-15 {
+		if player.Y+player.Dy*delay < plate.Y-plate.h {
 			return
 		}
-		player.Y = plate.Y - 15
+		player.room.mutex.Lock()
+		player.Y = plate.Y - plate.h
+		player.room.mutex.Unlock()
 		player.Jump()
 	}
 }
@@ -97,6 +100,49 @@ func Engine(player *Player) {
 		case <-player.engineDone:
 			return
 		default:
+			room := player.room
+			if player.Y-player.canvas.y <= maxScrollHeight && !player.room.stateScrollMap {
+				room.stateScrollMap = true // Сигнал запрещающий выполнять этот код еще раз пока не выполнится else
+				player.canvas.dy = -koefScrollSpeed
+				// Send new map to players
+
+				lastBlock := room.Blocks[len(room.Blocks)-1]
+				beginY := lastBlock.Y - 20
+				b := float64(koefHeightOfMaxGenerateSlice) + lastBlock.Y
+				k := uint16(koefGeneratePlates * (float64(koefHeightOfMaxGenerateSlice) + lastBlock.Y))
+				newBlocks := FieldGenerator(beginY, b, k)
+				room.Blocks = append(room.Blocks, newBlocks...)
+
+				for _, playerWithCanvas := range room.Players {
+					var players []Player
+					for _, player := range room.Players {
+						player.room.mutex.Lock()
+						playerCopy := *player
+						player.room.mutex.Unlock()
+						playerCopy.Y -= playerWithCanvas.canvas.y
+						players = append(players, playerCopy)
+
+						buffer, err := json.Marshal(struct {
+							Blocks  []*Block `json:"blocks"`
+							Players []Player `json:"players"`
+						}{
+							Blocks:  newBlocks,
+							Players: players,
+						})
+						if err != nil {
+							fmt.Println("Error encoding new blocks", err)
+							return
+						}
+						playerWithCanvas.SendMessage(&Message{
+							Type:    "map",
+							Payload: buffer,
+						})
+					}
+				}
+			} else if player.Y-player.canvas.y >= minScrollHeight && room.stateScrollMap {
+				room.stateScrollMap = false // Scrolling was finished
+				player.canvas.dy = 0
+			}
 			CircleDraw(player)
 			select {
 			case command := <-player.commands:
@@ -104,17 +150,19 @@ func Engine(player *Player) {
 					fmt.Println("Command's error was occured")
 					return
 				}
-				fmt.Println("Command was catched")
+				player.room.mutex.Lock()
 				if command.Direction == "LEFT" {
 					player.X -= player.Dx * command.Delay
-
 				} else if command.Direction == "RIGHT" {
 					player.X += player.Dx * command.Delay
 				}
+				player.room.mutex.Unlock()
 				ProcessSpeed(command.Delay, player)
 				Collision(command.Delay, player)
+				player.room.mutex.Lock()
 				player.Y += (player.Dy * command.Delay)
 				player.canvas.y += player.canvas.dy * command.Delay
+				player.room.mutex.Unlock()
 			}
 			log.Printf("*Player* id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", player.IdP, player.X, player.Y, player.Dx, player.Dy)
 		}

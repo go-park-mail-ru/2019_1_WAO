@@ -1,12 +1,6 @@
 package main
 
-import (
-	game "./game"
-)
-
 // type RoomController struct{}
-
-var Rooms map[string]game.Connections
 
 // func InitGame(roomName string) {
 // 	room := Rooms[roomName]

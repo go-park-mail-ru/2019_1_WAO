@@ -6,8 +6,6 @@ import (
 	"sync"
 )
 
-// type RoomController struct{}
-
 type Room struct {
 	ID                   string
 	game                 *Game
@@ -43,9 +41,9 @@ func (room *Room) Run() {
 		select {
 		case player := <-room.unregister:
 			log.Println("Unregistering...")
-			room.mutex.Lock()
+			// room.mutex.Lock()
 			delete(room.Players, player.IdP)
-			room.mutex.Unlock()
+			// room.mutex.Unlock()
 			log.Printf("Player %d was remoted from room\n", player.IdP)
 			log.Printf("Count of players: %d\n", len(room.Players))
 			if len(room.Players) == 0 {
@@ -74,7 +72,7 @@ func (room *Room) Run() {
 				for _, p := range room.Players {
 					players = append(players, p) // The
 					p.SetPlayerOnPlate(room.Blocks[0])
-					go p.MapPlayerListen()
+					// go p.MapPlayerListen()
 				}
 				blocksAndPlayers := BlocksAndPlayers{
 					Blocks:  room.Blocks,

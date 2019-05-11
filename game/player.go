@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	_ "net/http"
 
@@ -43,39 +44,51 @@ type Player struct {
 	H                  float64         `json:"-"`
 }
 
-func CheckPointCollision(playerPoint, blockUpPoint, blockDownPoint Point) bool {
-	if blockUpPoint.x <= playerPoint.x && playerPoint.x <= blockDownPoint.x && blockUpPoint.y <= playerPoint.y && playerPoint.y <= blockDownPoint.y {
-		return true
-	}
-	return false
-}
-
 func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
 	nearestBlock = nil
-	var minY float64
+	minY := math.MaxFloat64
+	canvasY := player.canvas.y
+	player.room.mutex.Lock()
 	for _, block := range player.room.Blocks {
+
+		if (block.Y-block.h > canvasY+700) || (block.Y < canvasY) {
+			continue
+		}
 		if player.X+player.W >= block.X && player.X <= block.X+block.w {
-			if block.Y-player.Y < minY && player.Y <= block.Y {
-				minY = block.Y - player.Y
+			if block.Y-player.Y-canvasY < minY && player.Y <= block.Y {
+				minY = block.Y - player.Y - canvasY
 				nearestBlock = block
 			}
 		}
 	}
+	player.room.mutex.Unlock()
 	return
 }
 
 func (player *Player) Jump() {
-	anyBlockDy := player.room.Blocks[0].Dy
-	if anyBlockDy != 0 {
-		player.Dy = -0.35 + anyBlockDy
+	canvasDy := player.canvas.dy
+	if canvasDy != 0 {
+		log.Println("Canvas != 0")
+	}
+	if canvasDy != 0 {
+		player.room.mutex.Lock()
+		player.Dy = -0.35 + canvasDy
+		player.room.mutex.Unlock()
 		return
 	}
+	player.room.mutex.Lock()
 	player.Dy = -0.35 // Change a vertical speed (for jump)
+	player.room.mutex.Unlock()
+	if player.Dy == -0.35 {
+		log.Printf("Work Dy = -0.35 *** idP = %d\n, dy = %f, y = %f\n", player.IdP, player.Dy, player.Y)
+	}
 }
 
 func (player *Player) SetPlayerOnPlate(block *Block) {
+	player.room.mutex.Lock()
 	player.Y = block.Y - block.h
 	player.X = block.X + block.w/2 // Отцентровка игрока по середине
+	player.room.mutex.Unlock()
 }
 
 func (player *Player) CircleDraw() {
@@ -113,7 +126,6 @@ func (p *Player) Listen() {
 				fmt.Println("Error connection", err)
 				return
 			}
-			fmt.Println(string(buffer))
 			var msg Message
 			if err = json.Unmarshal(buffer, &msg); err != nil {
 				fmt.Println("Error message parsing", err)
@@ -141,7 +153,7 @@ func (p *Player) Listen() {
 					fmt.Println("Moving error was occured", err)
 					return
 				}
-				fmt.Printf("Direction: %s, dt: %f\n", command.Direction, command.Delay)
+				// fmt.Printf("Direction: %s, dt: %f\n", command.Direction, command.Delay)
 				command.IdP = p.IdP
 				p.commands <- &command
 				payload, err := json.Marshal(command)

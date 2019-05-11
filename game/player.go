@@ -55,8 +55,8 @@ func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
 			continue
 		}
 		if player.X+player.W >= block.X && player.X <= block.X+block.w {
-			if block.Y-player.Y-canvasY < minY && player.Y <= block.Y {
-				minY = block.Y - player.Y - canvasY
+			if math.Abs(block.Y-player.Y) < minY && player.Y <= block.Y {
+				minY = math.Abs(block.Y - player.Y)
 				nearestBlock = block
 			}
 		}
@@ -66,22 +66,16 @@ func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
 }
 
 func (player *Player) Jump() {
-	canvasDy := player.canvas.dy
-	if canvasDy != 0 {
-		log.Println("Canvas != 0")
-	}
-	if canvasDy != 0 {
-		player.room.mutex.Lock()
-		player.Dy = -0.35 + canvasDy
-		player.room.mutex.Unlock()
-		return
-	}
+	// canvasDy := player.canvas.dy
+	// if canvasDy != 0 {
+	// 	player.room.mutex.Lock()
+	// 	player.Dy = -0.35 - canvasDy
+	// 	player.room.mutex.Unlock()
+	// 	return
+	// }
 	player.room.mutex.Lock()
 	player.Dy = -0.35 // Change a vertical speed (for jump)
 	player.room.mutex.Unlock()
-	if player.Dy == -0.35 {
-		log.Printf("Work Dy = -0.35 *** idP = %d\n, dy = %f, y = %f\n", player.IdP, player.Dy, player.Y)
-	}
 }
 
 func (player *Player) SetPlayerOnPlate(block *Block) {
@@ -93,9 +87,13 @@ func (player *Player) SetPlayerOnPlate(block *Block) {
 
 func (player *Player) CircleDraw() {
 	if player.X > WidthField {
+		player.room.mutex.Lock()
 		player.X = 0
+		player.room.mutex.Unlock()
 	} else if player.X < 0 {
+		player.room.mutex.Lock()
 		player.X = WidthField
+		player.room.mutex.Unlock()
 	}
 }
 
@@ -168,7 +166,9 @@ func (p *Player) Listen() {
 					}
 				}
 			case "lose":
+				p.room.mutex.Lock()
 				fmt.Println("!Player lose!")
+				p.room.mutex.Unlock()
 				return
 			}
 		}

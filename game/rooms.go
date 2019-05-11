@@ -19,6 +19,7 @@ type Room struct {
 	finish               chan struct{}
 	mutex                sync.Mutex
 	stateScrollMap       bool
+	scrollCount          int
 }
 
 func NewRoom(maxPlayers int, game *Game) *Room {
@@ -32,6 +33,7 @@ func NewRoom(maxPlayers int, game *Game) *Room {
 		finish:               make(chan struct{}, 1),
 		canvasControllerDone: make(chan struct{}, 1),
 		stateScrollMap:       false,
+		scrollCount:          0,
 	}
 }
 
@@ -99,14 +101,15 @@ func (room *Room) Run() {
 					Type:    "init",
 					Payload: payload2,
 				}
-				go room.CanvasController()
+				// go room.CanvasController()
 				room.Players[0].SendMessage(msg)
 				room.Players[1].SendMessage(msg2)
 				for _, player := range room.Players {
 					go Engine(player)
 				}
 				<-room.finish
-				room.canvasControllerDone <- struct{}{}
+				// room.canvasControllerDone <- struct{}{}
+				room.game.RemoveRoom(room)
 			}()
 
 		}

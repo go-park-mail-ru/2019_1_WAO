@@ -57,7 +57,7 @@ func (player *Player) MapPlayerListen() {
 				for _, player := range room.Players {
 					player.Dy += koefScrollSpeed
 				}
-				player.canvas.dy = koefScrollSpeed
+				player.canvas.dy = -koefScrollSpeed
 				// Send new map to players
 				room := player.room
 				lastBlock := room.Blocks[len(room.Blocks)-1]

@@ -41,7 +41,7 @@ func FieldGenerator(beginY float64, b float64, k uint16) (newBlocks []*Block) {
 	currentY := beginY
 	var i uint16
 	for i = 0; i < k; i++ {
-		currentX = randomGame.Float64() * (((WidthField - rightIndent) - leftIndent + 1) + leftIndent)
+		currentX = randomGame.Float64()*((WidthField-rightIndent)-leftIndent+1) + leftIndent
 		newBlocks = append(newBlocks, &Block{
 			X:  currentX,
 			Y:  currentY,

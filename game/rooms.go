@@ -6,6 +6,8 @@ import (
 	"sync"
 )
 
+// type RoomController struct{}
+
 type Room struct {
 	ID                   string
 	game                 *Game
@@ -42,8 +44,8 @@ func (room *Room) Run() {
 	for {
 		select {
 		case player := <-room.unregister:
-			room.mutex.Lock()
 			log.Println("Unregistering...")
+			room.mutex.Lock()
 			delete(room.Players, player.IdP)
 			room.mutex.Unlock()
 			room.mutex.Lock()
@@ -54,7 +56,9 @@ func (room *Room) Run() {
 				room.finish <- struct{}{}
 			}
 		case player := <-room.register:
+			room.mutex.Lock()
 			player.IdP = len(room.Players)
+			room.mutex.Unlock()
 			room.mutex.Lock()
 			room.Players[player.IdP] = player
 			room.mutex.Unlock()
@@ -68,7 +72,6 @@ func (room *Room) Run() {
 		case <-room.init:
 			go func() {
 				log.Println("room init")
-
 				type BlocksAndPlayers struct {
 					Blocks  []*Block  `json:"blocks"`
 					Players []*Player `json:"players"`
@@ -78,7 +81,6 @@ func (room *Room) Run() {
 				for _, p := range room.Players {
 					players = append(players, p) // The
 					p.SetPlayerOnPlate(room.Blocks[0])
-					// go p.MapPlayerListen()
 				}
 				blocksAndPlayers := BlocksAndPlayers{
 					Blocks:  room.Blocks,
@@ -105,14 +107,12 @@ func (room *Room) Run() {
 					Type:    "init",
 					Payload: payload2,
 				}
-				// go room.CanvasController()
 				room.Players[0].SendMessage(msg)
 				room.Players[1].SendMessage(msg2)
 				for _, player := range room.Players {
 					go Engine(player)
 				}
 				<-room.finish
-				// room.canvasControllerDone <- struct{}{}
 				room.game.RemoveRoom(room)
 			}()
 
@@ -131,7 +131,5 @@ func RemovePlayer(player *Player) {
 	player.room.unregister <- player
 	player.messagesClose <- struct{}{}
 	player.engineDone <- struct{}{}
-	// player.mapPlayerListenEnd <- struct{}{}
-
 	log.Println("Player was removed!")
 }

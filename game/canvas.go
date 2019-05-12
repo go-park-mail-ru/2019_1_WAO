@@ -25,16 +25,15 @@ func (room *Room) CanvasController() {
 				}
 			}
 			// Clear old blocks
-			blocks := &room.Blocks
 			var survivorBlocks []*Block
-			for _, block := range *blocks {
+			for _, block := range room.Blocks {
 				if !(block.Y > minCanvas.y+HeightField) {
 					room.mutex.Lock()
 					survivorBlocks = append(survivorBlocks, block)
 					room.mutex.Unlock()
 				}
 			}
-			*blocks = survivorBlocks
+			room.Blocks = survivorBlocks
 		}
 	}
 }

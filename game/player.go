@@ -47,21 +47,19 @@ type Player struct {
 func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
 	nearestBlock = nil
 	minY := math.MaxFloat64
-	canvasY := player.canvas.y
-	player.room.mutex.Lock()
+	// canvasY := player.canvas.y
 	for _, block := range player.room.Blocks {
 
-		if (block.Y-block.h > canvasY+700) || (block.Y < canvasY) {
-			continue
-		}
-		if player.X+player.W >= block.X && player.X <= block.X+block.w {
+		// if (block.Y-block.h > canvasY+700) || (block.Y < canvasY) {
+		// 	continue
+		// }
+		if player.X <= block.X+block.w && player.X+player.W >= block.X {
 			if math.Abs(block.Y-player.Y) < minY && player.Y <= block.Y {
 				minY = math.Abs(block.Y - player.Y)
 				nearestBlock = block
 			}
 		}
 	}
-	player.room.mutex.Unlock()
 	return
 }
 
@@ -107,6 +105,8 @@ func NewPlayer(conn *websocket.Conn) *Player {
 		mapPlayerListenEnd: make(chan struct{}),
 		Dx:                 0.2,
 		Dy:                 0.002,
+		W:                  50,
+		H:                  40,
 		canvas: &Canvas{
 			y:  0,
 			dy: 0,

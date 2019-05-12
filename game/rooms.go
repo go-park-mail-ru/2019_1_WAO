@@ -20,6 +20,7 @@ type Room struct {
 	mutex                sync.Mutex
 	stateScrollMap       bool
 	scrollCount          int
+	scroller             *Player
 }
 
 func NewRoom(maxPlayers int, game *Game) *Room {
@@ -34,6 +35,7 @@ func NewRoom(maxPlayers int, game *Game) *Room {
 		canvasControllerDone: make(chan struct{}, 1),
 		stateScrollMap:       false,
 		scrollCount:          0,
+		scroller:             nil,
 	}
 }
 
@@ -42,12 +44,14 @@ func (room *Room) Run() {
 	for {
 		select {
 		case player := <-room.unregister:
+			room.mutex.Lock()
 			log.Println("Unregistering...")
-			// room.mutex.Lock()
+			room.mutex.Lock()
 			delete(room.Players, player.IdP)
-			// room.mutex.Unlock()
+			room.mutex.Unlock()
 			log.Printf("Player %d was remoted from room\n", player.IdP)
 			log.Printf("Count of players: %d\n", len(room.Players))
+			room.mutex.Unlock()
 			if len(room.Players) == 0 {
 				room.finish <- struct{}{}
 			}
@@ -56,8 +60,10 @@ func (room *Room) Run() {
 			room.mutex.Lock()
 			room.Players[player.IdP] = player
 			room.mutex.Unlock()
+			room.mutex.Lock()
 			log.Printf("Player %d added to game\n", player.IdP)
 			log.Printf("len(room.Players): %d, room.MaxPlayers: %d\n", len(room.Players), room.MaxPlayers)
+			room.mutex.Unlock()
 			if len(room.Players) == room.MaxPlayers {
 				room.init <- struct{}{}
 			}
@@ -127,7 +133,7 @@ func RemovePlayer(player *Player) {
 	player.room.unregister <- player
 	player.messagesClose <- struct{}{}
 	player.engineDone <- struct{}{}
-	player.mapPlayerListenEnd <- struct{}{}
+	// player.mapPlayerListenEnd <- struct{}{}
 
 	log.Println("Player was removed!")
 }

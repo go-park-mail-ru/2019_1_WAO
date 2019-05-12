@@ -269,7 +269,6 @@ func Engine(player *Player) {
 				}
 				// panic("Dy >>>>>")
 			}
-
 			// for logss
 			// log.Printf("*Player* id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", player.IdP, player.X, player.Y, player.Dx, player.Dy)
 		}

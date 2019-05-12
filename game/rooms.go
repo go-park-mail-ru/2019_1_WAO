@@ -44,7 +44,9 @@ func (room *Room) Run() {
 	for {
 		select {
 		case player := <-room.unregister:
+			room.mutex.Lock()
 			log.Println("Unregistering...")
+			room.mutex.Unlock()
 			room.mutex.Lock()
 			delete(room.Players, player.IdP)
 			room.mutex.Unlock()

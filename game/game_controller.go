@@ -35,9 +35,7 @@ LOOP:
 
 		room := NewRoom(2, g)
 		g.AddRoom(room)
-
 		go room.Run()
-
 		room.AddPlayer(player)
 	}
 }
@@ -49,9 +47,7 @@ func (g *Game) AddPlayer(player *Player) {
 }
 
 func (g *Game) AddRoom(room *Room) {
-	g.mutex.Lock()
 	g.rooms = append(g.rooms, room)
-	g.mutex.Unlock()
 }
 
 func (g *Game) RemoveRoom(room *Room) error {

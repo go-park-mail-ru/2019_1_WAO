@@ -18,7 +18,6 @@ type Room struct {
 	init                 chan struct{}
 	finish               chan struct{}
 	mutex                sync.Mutex
-	stateScrollMap       bool
 	scrollCount          int
 	scroller             *Player
 }
@@ -33,7 +32,6 @@ func NewRoom(maxPlayers int, game *Game) *Room {
 		init:                 make(chan struct{}, 1),
 		finish:               make(chan struct{}, 1),
 		canvasControllerDone: make(chan struct{}, 1),
-		stateScrollMap:       false,
 		scrollCount:          0,
 		scroller:             nil,
 	}

@@ -42,6 +42,7 @@ type Player struct {
 	Dy                 float64         `json:"dy"`
 	W                  float64         `json:"-"`
 	H                  float64         `json:"-"`
+	stateScrollMap     bool            `json:"-"`
 }
 
 func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
@@ -111,6 +112,7 @@ func NewPlayer(conn *websocket.Conn) *Player {
 			y:  0,
 			dy: 0,
 		},
+		stateScrollMap: false,
 	}
 	return newPlayer
 }

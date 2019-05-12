@@ -44,9 +44,9 @@ func (room *Room) Run() {
 		case player := <-room.unregister:
 			room.mutex.Lock()
 			log.Println("Unregistering...")
-			room.mutex.Lock()
 			delete(room.Players, player.IdP)
 			room.mutex.Unlock()
+			room.mutex.Lock()
 			log.Printf("Player %d was remoted from room\n", player.IdP)
 			log.Printf("Count of players: %d\n", len(room.Players))
 			room.mutex.Unlock()

@@ -5,15 +5,16 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	_ "github.com/lib/pq"
 
 	"github.com/DmitriyPrischep/backend-WAO/pkg/auth"
-	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -65,7 +66,11 @@ var db *sql.DB
 
 var (
 	sessionManager auth.AuthCheckerClient
-	expiration     time.Time
+)
+
+const (
+	expiration        = 10 * time.Minute
+	pathToStaticFiles = "./static"
 )
 
 func GetUsers(w http.ResponseWriter, r *http.Request) {
@@ -126,9 +131,10 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var nickname string
+	var id string
 	err := db.QueryRow(`INSERT INTO users (email, nickname, password, scope, games, wins, image)
-		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING nickname`,
-		user.Email, user.Nickname, user.Password, 0, 0, 0, "").Scan(&nickname)
+		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, nickname`,
+		user.Email, user.Nickname, user.Password, 0, 0, 0, "").Scan(&id, &nickname)
 	if err != nil {
 		log.Printf("Error inserting record: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -147,13 +153,18 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cookie := &http.Cookie{
+	http.SetCookie(w, &http.Cookie{
 		Name:     "session_id",
 		Value:    sess.Value,
-		Expires:  time.Now().Add(10 * time.Minute),
+		Expires:  time.Now().Add(expiration),
 		HttpOnly: true,
-	}
-	http.SetCookie(w, cookie)
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "VID",
+		Value:    id,
+		Expires:  time.Now().Add(expiration),
+		HttpOnly: true,
+	})
 }
 
 func getSession(r *http.Request) (*auth.UserData, error) {
@@ -236,6 +247,59 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, `{"error": "This user is not found"}`, http.StatusNotFound)
 }
 
+func uploadAvatar(r *http.Request) (urlAvatar string, err error) {
+	cookieVID, err := r.Cookie("VID")
+	if err != nil {
+		return "", err
+	}
+	log.Println("DEBUG", "CookieVID", cookieVID.Value)
+	err = r.ParseMultipartForm(5 * 1024 * 1024)
+	if err != nil {
+		return "", err
+	}
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	log.Println("Molochnik")
+	if _, err := os.Stat(pathToStaticFiles); os.IsNotExist(err) {
+		err = os.Mkdir(pathToStaticFiles, 0700)
+		if err != nil {
+			return "", err
+		}
+	}
+	dirname := cookieVID.Value
+	if _, err := os.Stat(pathToStaticFiles + "/" + dirname); os.IsNotExist(err) {
+		err = os.Mkdir(pathToStaticFiles+"/"+dirname, 0400)
+		if err != nil {
+			return "", err
+		}
+	}
+	if err != nil {
+		return "", err
+	}
+
+	hash := fnv.New64a()
+	hash.Write([]byte(handler.Filename + time.Now().Format("15:04:05.00000")))
+	hashname := string(hash.Sum64())
+	fmt.Println("HASH:", hashname)
+
+	saveFile, err := os.Create(pathToStaticFiles + "/" + dirname + "/" + hashname)
+	if err != nil {
+		log.Println(err.Error())
+		return "", err
+	}
+	defer saveFile.Close()
+
+	_, err = io.Copy(saveFile, file)
+	if err != nil {
+		log.Println(err.Error())
+		return "", err
+	}
+	return hashname, nil
+}
+
 func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodOptions {
 		return
@@ -252,7 +316,19 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	newData.Email = r.FormValue("email")
 	newData.Password = r.FormValue("password")
 	newData.Nickname = r.FormValue("nickname")
+	var url string
+	if _, _, err := r.FormFile("file"); err != nil {
+		log.Println("Field with this name not exist")
+	} else {
+		url, err = uploadAvatar(r)
+		if err != nil {
+			log.Printf("Upload Error: %T\n %s\n", err, err.Error())
+			w.WriteHeader(http.StatusTeapot)
+			return
+		}
+	}
 
+	// ????
 	// body, err := ioutil.ReadAll(r.Body)
 	// defer r.Body.Close()
 	// if err != nil {
@@ -267,20 +343,22 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	UPDATE users SET
 		email = COALESCE(NULLIF($1, ''), email),
 		nickname = COALESCE(NULLIF($2, ''), nickname),
-		password = COALESCE(NULLIF($3, ''), password)
-	WHERE nickname = $4
+		password = COALESCE(NULLIF($3, ''), password),
+		image = COALESCE(NULLIF($4, ''), image)
+	WHERE nickname = $5
 	AND  (NULLIF($1, '') IS NOT NULL AND NULLIF($1, '') IS DISTINCT FROM email OR
 		 NULLIF($2, '') IS NOT NULL AND NULLIF($2, '') IS DISTINCT FROM nickname OR
-		 NULLIF($3, '') IS NOT NULL AND NULLIF($3, '') IS DISTINCT FROM password)
+		 NULLIF($3, '') IS NOT NULL AND NULLIF($3, '') IS DISTINCT FROM password OR
+		 NULLIF($4, '') IS NOT NULL AND NULLIF($4, '') IS DISTINCT FROM password)
 	RETURNING email, nickname, image;`,
-		newData.Email, newData.Nickname, newData.Password, userLogin).Scan(&user.Email, &user.Nickname, &user.Image)
+		newData.Email, newData.Nickname, newData.Password, url, userLogin).Scan(&user.Email, &user.Nickname, &user.Image)
 	switch err {
 	case sql.ErrNoRows:
 		log.Println("Method Update UserData: No rows were returned!")
 		exportData := updateDataExport{
 			Email:    newData.Email,
-			Nickname: newData.Email,
-			Image:    "",
+			Nickname: newData.Nickname,
+			Image:    url,
 		}
 		json.NewEncoder(w).Encode(exportData)
 	case nil:
@@ -294,18 +372,18 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func mainPage(w http.ResponseWriter, r *http.Request) {
-	session, err := getSession(r)
-	if err != nil {
-		log.Println("Error checking of session")
-	}
-	w.Write([]byte("WAO team"))
+// func mainPage(w http.ResponseWriter, r *http.Request) {
+// 	session, err := getSession(r)
+// 	if err != nil {
+// 		log.Println("Error checking of session")
+// 	}
+// 	w.Write([]byte("WAO team"))
 
-	if session != nil {
-		w.Header().Set("Content-Type", "text/html")
-		fmt.Fprintln(w, "\nWelcome "+session.Login)
-	}
-}
+// 	if session != nil {
+// 		w.Header().Set("Content-Type", "text/html")
+// 		fmt.Fprintln(w, "\nWelcome "+session.Login)
+// 	}
+// }
 
 func errorHandler(w http.ResponseWriter, r *http.Request, code int) {
 	if code == http.StatusNotFound {
@@ -328,13 +406,19 @@ func signout(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("Session: ", val)
 
-	expiredCookie := &http.Cookie{
+	http.SetCookie(w, &http.Cookie{
 		Name:     "session_id",
 		Value:    "",
 		Expires:  time.Now().AddDate(0, -1, 0),
 		HttpOnly: true,
-	}
-	http.SetCookie(w, expiredCookie)
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "VID",
+		Value:    "",
+		Expires:  time.Now().AddDate(0, -1, 0),
+		HttpOnly: true,
+	})
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -428,34 +512,10 @@ func loginPage(w http.ResponseWriter, r *http.Request) {
 	cookie := http.Cookie{
 		Name:    "session_id",
 		Value:   sess.Value,
-		Expires: expiration,
+		Expires: time.Now().Add(expiration),
 	}
 	http.SetCookie(w, &cookie)
 	http.Redirect(w, r, "/", http.StatusFound)
-}
-
-func checkAuthorization(r http.Request) (jwt.MapClaims, bool, error) {
-	cookie, err := r.Cookie("session_id")
-	if err != nil {
-		return nil, false, err
-	}
-
-	secret := []byte("secretkey")
-	token, err := jwt.Parse(cookie.Value, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, err
-		}
-		return secret, nil
-	})
-	if err != nil {
-		log.Printf("Unexpected signing method: %v", token.Header["alg"])
-		return nil, false, err
-	}
-
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		return claims, true, nil
-	}
-	return nil, false, nil
 }
 
 // func init() {
@@ -481,7 +541,6 @@ func checkAuthorization(r http.Request) (jwt.MapClaims, bool, error) {
 // }
 
 func main() {
-	expiration = time.Now().Add(10 * time.Minute)
 	viper.AddConfigPath("../../")
 	viper.SetConfigName("config")
 	if err := viper.ReadInConfig(); err != nil {
@@ -500,8 +559,6 @@ func main() {
 
 	connectStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=%s",
 		userDB, userPass, nameDB, sslMode)
-	fmt.Println("Str: ", connectStr)
-
 	var err error
 	db, err = sql.Open("postgres", connectStr)
 	if err != nil {
@@ -530,7 +587,7 @@ func main() {
 	apiV1.HandleFunc("/users", GetUsers).Methods("GET", " OPTIONS")
 	apiV1.HandleFunc("/users", CreateUser).Methods("POST", "OPTIONS")
 	apiV1.HandleFunc("/users/{login}", GetUser).Methods("GET", "OPTIONS")
-	apiV1.HandleFunc("/users/{login}", UpdateUser).Methods("PUT", "OPTIONS")
+	apiV1.HandleFunc("/users/man/{login}", UpdateUser) //.Methods("PUT", "OPTIONS")
 	apiV1.HandleFunc("/session", signout).Methods("DELETE", "OPTIONS")
 	apiV1.HandleFunc("/session", checkSession).Methods("GET", "OPTIONS")
 	apiV1.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -579,10 +636,11 @@ func main() {
 		var signUpForm = []byte(`
 		<html>
 			<body>
-			<form action="/api/users/Hotman" method="put">
+			<form action="/api/users/man/Hotman" method="post" enctype="multipart/form-data">
 				NewEmail: <input type="text" name="email">
-				NewLogin: <input type="text" name="login">
+				NewLogin: <input type="text" name="nickname">
 				NewPass: <input type="password" name="password">
+				Image: <input type="file" name="file">
 				<input type="submit" value="Upd">
 			</form>
 			</body>
@@ -594,7 +652,7 @@ func main() {
 
 	staticHandler := http.StripPrefix(
 		"/data/",
-		http.FileServer(http.Dir("./static")),
+		http.FileServer(http.Dir(pathToStaticFiles)),
 	)
 	siteMux.Handle("/data/", staticHandler)
 

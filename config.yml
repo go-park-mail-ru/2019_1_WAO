@@ -12,5 +12,6 @@ db:
   password: 123456
   name: waogame
   sslmode: disable
+  dump: ./dbase/dump.sql
   
-secret: waosecret
+secretkey: waosecret

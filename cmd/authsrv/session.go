@@ -13,26 +13,17 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-type User struct {
-	ID       int    `json:"id, string, omitempty"`
-	Email    string `json:"email, omitempty"`
-	password string `json:"-"`
-	Nick     string `json:"nickname, omitempty"`
-	Score    int    `json:"score, string, omitempty"`
-	Games    int    `json:"games, string, omitempty"`
-	Wins     int    `json:"wins, string, omitempty"`
-	Image    string `json:"image, omitempty"`
-}
+const (
+	expiration = 10 * time.Minute
+)
 
 type SessionManager struct {
 	// Definition DateBase
-	// sessions map[string]*auth.UserData
 }
 
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
 		//Initialize DataBase
-		// sessions: map[string]*auth.UserData{},
 	}
 }
 
@@ -40,7 +31,7 @@ func generateToken(in *auth.UserData) (token string, err error) {
 	rawToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"username": in.Login,
 		"agent":    in.Agent,
-		"exp":      time.Now().Add(expires).Unix(),
+		"exp":      time.Now().Add(expiration).Unix(),
 	})
 
 	tokenString, err := rawToken.SignedString(secret)
@@ -88,10 +79,7 @@ func (sm *SessionManager) Check(ctx context.Context, tokenString *auth.Token) (*
 		if !ok {
 			return nil, errors.New("Bad claims: field 'username' not exist")
 		}
-		// var usernameStr string
-		// if usernameStr, ok := username.(string); !ok {
-		// 	log.Printf("Error: Cannot convert username (%s) to string", username)
-		// }
+
 		user := &auth.UserData{
 			Login: username.(string),
 		}

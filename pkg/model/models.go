@@ -17,10 +17,29 @@ type User struct {
 	Image    string `json:"image, omitempty"`
 }
 
-type signinUser struct {
+type SigninUser struct {
 	Nickname string `json:"nickname, omitempty"`
 	Password string `json:"password, omitempty"`
 }
+
+type NicknameUser struct {
+	Nickname string `json:"nickname, omitempty"`
+}
+
+type UpdateDataImport struct {
+	Nickname string `json:"nickname, omitempty"`
+	Password string `json:"password, omitempty"`
+	Email    string `json:"email, omitempty"`
+	Image    string `json:"image, omitempty"`
+	OldNick    string `json:"oldnick, omitempty"`
+}
+
+type UpdateDataExport struct {
+	Email    string `json:"email, omitempty"`
+	Nickname string `json:"nickname, omitempty"`
+	Image    string `json:"image, omitempty"`
+}
+
 
 type DBService interface {
 	User(id int) (*User, error)

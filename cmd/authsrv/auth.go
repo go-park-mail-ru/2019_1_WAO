@@ -12,22 +12,10 @@ import (
 	"google.golang.org/grpc"
 )
 
-var db *sql.DB
-
-func init() {
-
-
-	connectStr := "user=postgres password=123456 dbname=waogame sslmode=disable"
-	// connectStr2 := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable",
-	// 	viper.GetString("db.user"), viper.GetString("db.password"), viper.GetString("db.name"))
-	// fmt.Printf("Equal:\n%s\n%s", connectStr, connectStr2)
-
-	var err error
-	db, err = sql.Open("postgres", connectStr)
-	if err != nil {
-		log.Printf("No connection to DB: %v", err)
-	}
-}
+var (
+	db *sql.DB
+	secret string
+)
 
 func main() {
 	viper.AddConfigPath("../../")
@@ -40,6 +28,7 @@ func main() {
 	userPass := viper.GetString("db.password")
 	nameDB := viper.GetString("db.name")
 	sslMode := viper.GetString("db.sslmode")
+	secret = viper.GetString("secretkey")
 
 	connectStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=%s",
 		userDB, userPass, nameDB, sslMode)
@@ -56,7 +45,7 @@ func main() {
 	if err != nil {
 		log.Fatalln("cant listet port", err)
 	}
-
+	
 	server := grpc.NewServer()
 
 	auth.RegisterAuthCheckerServer(server, NewSessionManager())

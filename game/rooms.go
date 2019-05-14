@@ -12,7 +12,7 @@ type Room struct {
 	ID                   string
 	game                 *Game
 	MaxPlayers           int
-	Players              map[int]*Player
+	Players              sync.Map
 	Blocks               []*Block
 	register             chan *Player
 	unregister           chan *Player
@@ -29,7 +29,6 @@ func NewRoom(maxPlayers int, game *Game) *Room {
 	return &Room{
 		MaxPlayers:           maxPlayers,
 		game:                 game,
-		Players:              make(map[int]*Player),
 		register:             make(chan *Player),
 		unregister:           make(chan *Player),
 		init:                 make(chan struct{}, 1),
@@ -41,33 +40,38 @@ func NewRoom(maxPlayers int, game *Game) *Room {
 		// scroller:             nil,
 	}
 }
+func length(m *sync.Map) int {
+	counter := 0
+	m.Range(func(_, _ interface{}) bool {
+		counter++
+		return true
+	})
+	return counter
+}
 
 func (room *Room) Run() {
 	log.Println("Room loop started")
+	initFinish := make(chan struct{}, 1)
 	for {
 		select {
+		case <-room.finish:
+			initFinish <- struct{}{}
+			room.game.RemoveRoom(room)
 		case player := <-room.unregister:
 			log.Println("Unregistering...")
-			room.mutexEngine.Lock()
-			delete(room.Players, player.IdP)
-			room.mutexEngine.Unlock()
+			room.Players.Delete(player.IdP)
 			log.Printf("Player %d was remoted from room\n", player.IdP)
-			log.Printf("Count of players: %d\n", len(room.Players))
-			room.mutexEngine.Lock()
-			countOfPlayers := len(room.Players)
-			room.mutexEngine.Unlock()
+			log.Printf("Count of players: %d\n", length(&room.Players))
 			player.messagesClose <- struct{}{}
-			if countOfPlayers == 0 {
+			if length(&room.Players) == 0 {
 				room.finish <- struct{}{}
 			}
 		case player := <-room.register:
-			room.mutexRoom.Lock()
-			player.IdP = len(room.Players)
-			room.Players[player.IdP] = player
+			player.IdP = length(&room.Players)
+			room.Players.Store(player.IdP, player)
 			log.Printf("Player %d added to game\n", player.IdP)
-			log.Printf("len(room.Players): %d, room.MaxPlayers: %d\n", len(room.Players), room.MaxPlayers)
-			room.mutexRoom.Unlock()
-			if len(room.Players) == room.MaxPlayers {
+			log.Printf("len(room.Players): %d, room.MaxPlayers: %d\n", length(&room.Players), room.MaxPlayers)
+			if length(&room.Players) == room.MaxPlayers {
 				room.init <- struct{}{}
 			}
 		case <-room.init:
@@ -81,10 +85,11 @@ func (room *Room) Run() {
 				log.Println("room init")
 				room.Blocks = FieldGenerator(HeightField-20, 2000, 2000*0.01)
 				var players []*Player
-				for _, p := range room.Players {
-					players = append(players, p) // The
-					p.SetPlayerOnPlate(room.Blocks[0])
-				}
+				room.Players.Range(func(_, p interface{}) bool {
+					players = append(players, p.(*Player))
+					p.(*Player).SetPlayerOnPlate(room.Blocks[0])
+					return true
+				})
 				blocksAndPlayers := BlocksAndPlayers{
 					Blocks:  room.Blocks,
 					Players: players,
@@ -111,15 +116,23 @@ func (room *Room) Run() {
 					Payload: payload2,
 				}
 				room.mutexRoom.Unlock()
-				room.Players[0].SendMessage(msg)
-				room.Players[1].SendMessage(msg2)
-				room.mutexRoom.Lock()
-				for _, player := range room.Players {
-					go Engine(player)
+				var p0, p1 interface{}
+				var ok bool
+				if p0, ok = room.Players.Load(0); !ok {
+					log.Println("Player id 0 was not found!")
 				}
+				p0.(*Player).SendMessage(msg)
+				if p1, ok = room.Players.Load(1); !ok {
+					log.Println("Player id 1 was not found!")
+				}
+				p1.(*Player).SendMessage(msg2)
+				room.mutexRoom.Lock()
+				room.Players.Range(func(_, player interface{}) bool {
+					go Engine(player.(*Player))
+					return true
+				})
 				room.mutexRoom.Unlock()
-				<-room.finish
-				room.game.RemoveRoom(room)
+				<-initFinish
 			}()
 
 		}

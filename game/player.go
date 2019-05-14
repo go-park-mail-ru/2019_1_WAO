@@ -147,11 +147,12 @@ func (p *Player) Listen() {
 					return
 				}
 				msg.Payload = payload
-				for _, player := range p.room.Players {
-					if player != p {
-						player.SendMessage(&msg)
+				p.room.Players.Range(func(_, player interface{}) bool {
+					if player.(*Player) != p {
+						player.(*Player).SendMessage(&msg)
 					}
-				}
+					return true
+				})
 			case "lose":
 				fmt.Println("!Player lose!")
 				return

@@ -71,7 +71,7 @@ func CircleDraw(player *Player) {
 func Collision(delay float64, player *Player) {
 	var plate *Block = player.SelectNearestBlock(&player.room.Blocks)
 	if plate == nil {
-		log.Println("************ Plate is nil ************")
+		log.Printf("* Plate is nil * for player id%d", player.IdP)
 		return
 	}
 	if player.Dy >= 0 {
@@ -85,11 +85,11 @@ func Collision(delay float64, player *Player) {
 	}
 }
 
-func (canvas *Canvas) BlocksToAnotherCanvas(blocks []*Block) []*Block {
+func (canvas *Canvas) BlocksToAnotherCanvas(blocks []*Block, b float64) []*Block {
 	var newBlocks []*Block
 	for _, block := range blocks {
 		blockCopy := *block
-		blockCopy.Y -= canvas.y
+		blockCopy.Y -= (blocks[0].Y - b) - canvas.y
 		newBlocks = append(newBlocks, &blockCopy)
 	}
 	return newBlocks
@@ -97,32 +97,35 @@ func (canvas *Canvas) BlocksToAnotherCanvas(blocks []*Block) []*Block {
 
 // Virtual transfer player to anotherPlayer's canvas
 func (player *Player) playerToAnotherCanvas(anotherPlayer *Player) *Player {
+	player.room.mutexEngine.Lock()
 	playerCopy := *player
 	playerCopy.Y += (anotherPlayer.canvas.y - player.canvas.y)
+	player.room.mutexEngine.Unlock()
 	return &playerCopy
 }
 
 func (room *Room) AllPlayersToAnotherCanvas(player *Player) []*Player {
 	var players []*Player
-	for _, plr := range room.Players { // plr - a current player
-		players = append(players, plr.playerToAnotherCanvas(player))
-	}
+	room.Players.Range(func(_, plr interface{}) bool { // plr - a current player
+		players = append(players, plr.(*Player).playerToAnotherCanvas(player))
+		return true
+	})
 	return players
 }
 
 func (room *Room) HighestPlayer() *Player {
 	var maxYPlayer *Player = nil
 	maxY := math.MaxFloat64
-	for _, player := range room.Players {
-		if player.Y < maxY {
-			maxY = player.Y
-			maxYPlayer = player
+	room.Players.Range(func(_, player interface{}) bool {
+		if player.(*Player).Y < maxY {
+			maxY = player.(*Player).Y
+			maxYPlayer = player.(*Player)
 		}
-	}
+		return true
+	})
 	return maxYPlayer
 }
 func Engine(player *Player) {
-	// defer wg.Done()
 	for {
 		select {
 		case <-player.engineDone:
@@ -139,10 +142,11 @@ func Engine(player *Player) {
 					log.Println("Map scrolling is starting...")
 					fmt.Printf("Count of scrolling: %d\n", player.room.scrollCount)
 					fmt.Println("Players:")
-					for _, plr := range player.room.Players {
-						fmt.Printf("id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", plr.IdP, plr.X, plr.Y, plr.Dx, plr.Dy)
-						fmt.Printf("Canvas for id%d y: %f, dy: %f\n", plr.IdP, plr.canvas.y, plr.canvas.dy)
-					}
+					player.room.Players.Range(func(_, plr interface{}) bool {
+						fmt.Printf("id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", plr.(*Player).IdP, plr.(*Player).X, plr.(*Player).Y, plr.(*Player).Dx, plr.(*Player).Dy)
+						fmt.Printf("Canvas for id%d y: %f, dy: %f\n", plr.(*Player).IdP, plr.(*Player).canvas.y, plr.(*Player).canvas.dy)
+						return true
+					})
 					// Send new map to players
 					lastBlock := player.room.Blocks[len(player.room.Blocks)-1]
 					beginY := lastBlock.Y - 20
@@ -155,13 +159,14 @@ func Engine(player *Player) {
 					var buffer []byte
 					var err error
 
-					for _, playerWithCanvas := range player.room.Players {
+					player.room.Players.Range(func(_, playerWithCanvas interface{}) bool {
 						var players []*Player
-						for _, player := range player.room.Players {
-							playerCopy := player.playerToAnotherCanvas(playerWithCanvas)
+						player.room.Players.Range(func(_, player interface{}) bool {
+							playerCopy := player.(*Player).playerToAnotherCanvas(playerWithCanvas.(*Player))
 							players = append(players, playerCopy)
-						}
-						newBlocksForPlayer := playerWithCanvas.canvas.BlocksToAnotherCanvas(newBlocks)
+							return true
+						})
+						newBlocksForPlayer := playerWithCanvas.(*Player).canvas.BlocksToAnotherCanvas(newBlocks, b)
 						if buffer, err = json.Marshal(struct {
 							Blocks  []*Block  `json:"blocks"`
 							Players []*Player `json:"players"`
@@ -170,17 +175,18 @@ func Engine(player *Player) {
 							Players: players,
 						}); err != nil {
 							fmt.Println("Error encoding new blocks", err)
-							return
+							return false // ?
 						}
-						playerWithCanvas.SendMessage(&Message{
+						playerWithCanvas.(*Player).SendMessage(&Message{
 							Type:    "map",
 							Payload: buffer,
 						})
-						log.Printf("New blocks for id %d:\n", playerWithCanvas.IdP)
+						log.Printf("New blocks for id %d:\n", playerWithCanvas.(*Player).IdP)
 						for _, block := range newBlocksForPlayer {
 							fmt.Printf("x: %f, y: %f, w: %f, h: %f\n", block.X, block.Y, block.w, block.h)
 						}
-					}
+						return true
+					})
 					log.Println("******* MAP WAS SENDED *******")
 					log.Println("New blocks:")
 					for _, block := range newBlocks {
@@ -211,10 +217,11 @@ func Engine(player *Player) {
 					fmt.Println("Command's error was occured")
 					continue
 				}
-				if player.commandCounter == 1 {
+				if player.commandCounter == 10 {
 					fmt.Println("For Player id", player.IdP)
-					player.room.mutexEngine.Lock()
+
 					players := player.room.AllPlayersToAnotherCanvas(player)
+					player.room.mutexEngine.Lock()
 					for _, plr := range players {
 						fmt.Printf("id: %d, x: %f, y: %f, dy: %f\n", plr.IdP, plr.X, plr.Y, plr.Dy)
 					}
@@ -258,10 +265,11 @@ func Engine(player *Player) {
 					fmt.Printf("Block x: %f, y: %f\n", block.X, block.Y)
 				}
 				fmt.Println("Players:")
-				for _, plr := range player.room.Players {
-					fmt.Printf("id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", plr.IdP, plr.X, plr.Y, plr.Dx, plr.Dy)
-					fmt.Printf("Canvas for id%d y: %f, dy: %f\n", plr.IdP, plr.canvas.y, plr.canvas.dy)
-				}
+				player.room.Players.Range(func(_, plr interface{}) bool {
+					fmt.Printf("id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", plr.(*Player).IdP, plr.(*Player).X, plr.(*Player).Y, plr.(*Player).Dx, plr.(*Player).Dy)
+					fmt.Printf("Canvas for id%d y: %f, dy: %f\n", plr.(*Player).IdP, plr.(*Player).canvas.y, plr.(*Player).canvas.dy)
+					return true
+				})
 				// panic("Dy >>>>>")
 			}
 			// for logss

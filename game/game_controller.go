@@ -27,7 +27,7 @@ LOOP:
 		player := <-g.register
 
 		for _, room := range g.rooms {
-			if len(room.Players) < room.MaxPlayers {
+			if length(&room.Players) < room.MaxPlayers {
 				g.mutex.Lock()
 				room.AddPlayer(player)
 				g.mutex.Unlock()

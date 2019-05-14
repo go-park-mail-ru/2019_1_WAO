@@ -6,6 +6,11 @@ authsrv:
   host: 127.0.0.1
   port: 5051
 
+game:
+  host: 127.0.0.1
+  port: 8080
+  static: static
+
 db:
   host: localhost
   user: postgres

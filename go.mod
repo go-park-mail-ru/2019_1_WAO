@@ -6,6 +6,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/golang/protobuf v1.3.1
 	github.com/gorilla/mux v1.7.1
+	github.com/gorilla/websocket v1.4.0
 	github.com/lib/pq v1.1.1
 	github.com/spf13/viper v1.3.2
 	github.com/swaggo/files v0.0.0-20190110041405-30649e0721f8 // indirect

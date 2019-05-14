@@ -28,9 +28,7 @@ func (room *Room) CanvasController() {
 			var survivorBlocks []*Block
 			for _, block := range room.Blocks {
 				if !(block.Y > minCanvas.y+HeightField) {
-					room.mutex.Lock()
 					survivorBlocks = append(survivorBlocks, block)
-					room.mutex.Unlock()
 				}
 			}
 			room.Blocks = survivorBlocks

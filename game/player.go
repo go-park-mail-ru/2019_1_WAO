@@ -27,22 +27,22 @@ type Message struct {
 }
 
 type Player struct {
-	connection         *websocket.Conn `json:"-"`
-	room               *Room           `json:"-"`
-	commands           chan *Command   `json:"-"`
-	engineDone         chan struct{}   `json:"-"`
-	messagesClose      chan struct{}   `json"-"`
-	mapPlayerListenEnd chan struct{}   `json:"-"`
-	canvas             *Canvas         `json:"-"`
-	out                chan []byte     `json:"-"`
-	IdP                int             `json:"idP"`
-	X                  float64         `json:"x"`
-	Y                  float64         `json:"y"`
-	Dx                 float64         `json:"dx"`
-	Dy                 float64         `json:"dy"`
-	W                  float64         `json:"-"`
-	H                  float64         `json:"-"`
-	stateScrollMap     bool            `json:"-"`
+	connection     *websocket.Conn `json:"-"`
+	room           *Room           `json:"-"`
+	commands       chan *Command   `json:"-"`
+	engineDone     chan struct{}   `json:"-"`
+	messagesClose  chan struct{}   `json"-"`
+	canvas         *Canvas         `json:"-"`
+	out            chan []byte     `json:"-"`
+	IdP            int             `json:"idP"`
+	X              float64         `json:"x"`
+	Y              float64         `json:"y"`
+	Dx             float64         `json:"dx"`
+	Dy             float64         `json:"dy"`
+	W              float64         `json:"-"`
+	H              float64         `json:"-"`
+	stateScrollMap bool            `json:"-"`
+	commandCounter uint64          `json:"-"`
 }
 
 func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
@@ -65,54 +65,39 @@ func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
 }
 
 func (player *Player) Jump() {
-	// canvasDy := player.canvas.dy
-	// if canvasDy != 0 {
-	// 	player.room.mutex.Lock()
-	// 	player.Dy = -0.35 - canvasDy
-	// 	player.room.mutex.Unlock()
-	// 	return
-	// }
-	player.room.mutex.Lock()
 	player.Dy = -0.35 // Change a vertical speed (for jump)
-	player.room.mutex.Unlock()
 }
 
 func (player *Player) SetPlayerOnPlate(block *Block) {
-	player.room.mutex.Lock()
 	player.Y = block.Y - block.h
 	player.X = block.X + block.w/2 // Отцентровка игрока по середине
-	player.room.mutex.Unlock()
 }
 
 func (player *Player) CircleDraw() {
 	if player.X > WidthField {
-		player.room.mutex.Lock()
 		player.X = 0
-		player.room.mutex.Unlock()
 	} else if player.X < 0 {
-		player.room.mutex.Lock()
 		player.X = WidthField
-		player.room.mutex.Unlock()
 	}
 }
 
 func NewPlayer(conn *websocket.Conn) *Player {
 	newPlayer := &Player{
-		connection:         conn,
-		out:                make(chan []byte),
-		commands:           make(chan *Command, 10),
-		engineDone:         make(chan struct{}, 1),
-		messagesClose:      make(chan struct{}),
-		mapPlayerListenEnd: make(chan struct{}),
-		Dx:                 0.2,
-		Dy:                 0.002,
-		W:                  50,
-		H:                  40,
+		connection:    conn,
+		out:           make(chan []byte),
+		commands:      make(chan *Command, 10),
+		engineDone:    make(chan struct{}, 1),
+		messagesClose: make(chan struct{}),
+		Dx:            0.2,
+		Dy:            0.002,
+		W:             50,
+		H:             40,
 		canvas: &Canvas{
 			y:  0,
 			dy: 0,
 		},
 		stateScrollMap: false,
+		commandCounter: 0,
 	}
 	return newPlayer
 }
@@ -168,9 +153,7 @@ func (p *Player) Listen() {
 					}
 				}
 			case "lose":
-				p.room.mutex.Lock()
 				fmt.Println("!Player lose!")
-				p.room.mutex.Unlock()
 				return
 			}
 		}
@@ -178,10 +161,11 @@ func (p *Player) Listen() {
 
 	for {
 		select {
+		case <-p.messagesClose:
+			p.engineDone <- struct{}{}
+			return
 		case message := <-p.out:
 			p.connection.WriteMessage(websocket.TextMessage, message)
-		case <-p.messagesClose:
-			return
 		}
 	}
 }

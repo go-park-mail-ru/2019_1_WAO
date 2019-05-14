@@ -69,7 +69,7 @@ func CircleDraw(player *Player) {
 }
 
 func Collision(delay float64, player *Player) {
-	var plate *Block = player.SelectNearestBlock()
+	var plate *Block = player.SelectNearestBlock(&player.room.Blocks)
 	if plate == nil {
 		log.Println("************ Plate is nil ************")
 		return
@@ -260,7 +260,7 @@ func Engine(player *Player) {
 				fmt.Println("Players:")
 				for _, plr := range player.room.Players {
 					fmt.Printf("id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", plr.IdP, plr.X, plr.Y, plr.Dx, plr.Dy)
-					fmt.Printf("Canva for id%d y: %f, dy: %f\n", plr.IdP, plr.canvas.y, plr.canvas.dy)
+					fmt.Printf("Canvas for id%d y: %f, dy: %f\n", plr.IdP, plr.canvas.y, plr.canvas.dy)
 				}
 				// panic("Dy >>>>>")
 			}

@@ -1,8 +1,21 @@
 package game
 
-// import (
-// 	"testing"
-// )
+import (
+	"testing"
+)
+
+func TestSize(t *testing.T) {
+
+	player := &Player{
+		W: 50,
+		H: 40,
+	}
+
+	if player.W != 50 {
+		t.Errorf("Expected: 50, but got: %f\n", player.W)
+	}
+
+}
 
 // type Moves struct {
 // 	vector    Vector

@@ -45,7 +45,7 @@ LOOP:
 }
 
 func (g *Game) AddPlayer(player *Player) {
-	log.Println("Player %d queued to add")
+	log.Printf("Player %d queued to add\n", player.IdP)
 	go player.Listen()
 	g.register <- player
 }
@@ -57,8 +57,8 @@ func (g *Game) AddRoom(room *Room) {
 func (g *Game) RemoveRoom(room *Room) error {
 
 	rooms := &g.rooms
-	lastIndex := len(*rooms) - 1
 	g.mutex.Lock()
+	lastIndex := len(*rooms) - 1
 	for index, r := range g.rooms {
 		if r == room {
 

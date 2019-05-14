@@ -45,11 +45,11 @@ type Player struct {
 	commandCounter uint64          `json:"-"`
 }
 
-func (player *Player) SelectNearestBlock() (nearestBlock *Block) {
+func (player *Player) SelectNearestBlock(blocks *[]*Block) (nearestBlock *Block) {
 	nearestBlock = nil
 	minY := math.MaxFloat64
 	// canvasY := player.canvas.y
-	for _, block := range player.room.Blocks {
+	for _, block := range *blocks {
 
 		// if (block.Y-block.h > canvasY+700) || (block.Y < canvasY) {
 		// 	continue
@@ -118,12 +118,12 @@ func (p *Player) Listen() {
 			}
 			if _, ok := err.(*net.OpError); ok {
 				log.Println("My Life is a pain")
-				log.Printf("Player %s disconnected\n", p.IdP)
+				log.Printf("Player %d disconnected\n", p.IdP)
 				return
 			}
 
 			if websocket.IsUnexpectedCloseError(err) {
-				log.Printf("Player %s disconnected\n", p.IdP)
+				log.Printf("Player %d disconnected\n", p.IdP)
 				return
 			}
 			if err != nil {

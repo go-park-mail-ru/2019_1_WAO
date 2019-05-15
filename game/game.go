@@ -68,6 +68,30 @@ func CircleDraw(player *Player) {
 	}
 }
 
+// func Collision(delay float64, player *Player) {
+//     // if (command.idP !== 0) {
+//     //   alert("1");
+//     // }
+//     var plate *Block = player.SelectNearestBlock(&player.room.Blocks)
+// 	if plate == nil {
+// 		log.Printf("* Plate is nil * for player id%d", player.IdP)
+// 		return
+// 	}
+//     if (player.Dy >= 0 && !player.StateScrollMap || player.Dy - koefScrollSpeed >= 0 && player.stateScrollMap) {
+
+//       if ((player.Dy >= 0 && !player.StateScrollMap) && (player.Y + player.Dy * command.Delay < plate.Y - plate.h) || (player.Dy - koefScrollSpeed >= 0 && player.StateScrollMap) && (player.Y + (player.Dy - koefScrollSpeed) * command.Delay < plate.Y - plate.)) {
+//         return
+//       }
+//       // Если был включен счетчик очков, то передать в него пластину от которой будем прыгать
+//     //   if (this.score) {
+//     //     this.score.giveCurrentPlate(plate);
+//     //   }
+//       player.Y = plate.Y - plate.h
+// 		// fmt.Println("******** COLLISION WAS OCCURED ********")
+// 		player.Jump()
+//     }
+//   }
+
 func Collision(delay float64, player *Player) {
 	var plate *Block = player.SelectNearestBlock(&player.room.Blocks)
 	if plate == nil {
@@ -85,11 +109,14 @@ func Collision(delay float64, player *Player) {
 	}
 }
 
-func (canvas *Canvas) BlocksToAnotherCanvas(blocks []*Block, b float64) []*Block {
+func (player *Player) BlocksToAnotherCanvas(blocks []*Block, b float64) []*Block {
 	var newBlocks []*Block
 	for _, block := range blocks {
 		blockCopy := *block
-		blockCopy.Y -= (blocks[0].Y - b) - canvas.y
+
+		// blockCopy.Y = blockCopy.Y - (blocks[0].Y - b) + canvas.y
+		highestPlayer := player.room.HighestPlayer()
+		blockCopy.Y = blocks[0].Y - (2000 + blocks[0].Y - highestPlayer.canvas.y) - highestPlayer.Y
 		newBlocks = append(newBlocks, &blockCopy)
 	}
 	return newBlocks
@@ -166,7 +193,7 @@ func Engine(player *Player) {
 							players = append(players, playerCopy)
 							return true
 						})
-						newBlocksForPlayer := playerWithCanvas.(*Player).canvas.BlocksToAnotherCanvas(newBlocks, b)
+						newBlocksForPlayer := playerWithCanvas.(*Player).BlocksToAnotherCanvas(newBlocks, b)
 						if buffer, err = json.Marshal(struct {
 							Blocks  []*Block  `json:"blocks"`
 							Players []*Player `json:"players"`
@@ -195,9 +222,9 @@ func Engine(player *Player) {
 
 				}
 			} else if player.Y-player.canvas.y >= minScrollHeight && player.stateScrollMap == true {
+				player.stateScrollMap = false // Scrolling was finished
 				player.canvas.dy = 0
 				log.Printf("Canvas with player id%d was stopped...\n", player.IdP)
-				player.stateScrollMap = false // Scrolling was finished
 				// player.room.mutex.Lock()
 				// log.Println("Map scrolling is finishing...")
 				// fmt.Printf("Count of scrolling: %d\n", player.room.scrollCount)

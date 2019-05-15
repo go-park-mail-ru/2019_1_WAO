@@ -62,7 +62,7 @@ func (room *Room) Run() {
 			room.Players.Delete(player.IdP)
 			log.Printf("Player %d was remoted from room\n", player.IdP)
 			log.Printf("Count of players: %d\n", length(&room.Players))
-			player.messagesClose <- struct{}{}
+
 			if length(&room.Players) == 0 {
 				room.finish <- struct{}{}
 			}
@@ -147,7 +147,7 @@ func (room *Room) AddPlayer(player *Player) {
 func RemovePlayer(player *Player) {
 
 	log.Printf("id deleting player: %d\n", player.IdP)
+	player.messagesClose <- struct{}{}
 	player.room.unregister <- player
-
 	log.Println("Player was removed!")
 }

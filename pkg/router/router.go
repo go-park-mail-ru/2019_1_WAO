@@ -14,25 +14,25 @@ var (
 )
 
 func CreateRouter(prefix, pathToStaticFiles string, serviceSession auth.AuthCheckerClient, db *driver.DB) *http.ServeMux {
-	pHandler := ph.NewPostHandler(connection)
-	pathStaticServer = pathToStaticFiles
+	userHandler := handlers.NewUserHandler(db, serviceSession)
+	PathStaticServer = pathToStaticFiles
 	Auth = serviceSession
 	actionMux := mux.NewRouter()
 	apiV1 := actionMux.PathPrefix(prefix).Subrouter()
 
-	apiV1.HandleFunc("/users", GetAll).Methods("GET", " OPTIONS")
-	apiV1.HandleFunc("/users", AddUser).Methods("POST", "OPTIONS")
-	apiV1.HandleFunc("/users/{login}", GetUsersByNick).Methods("GET", "OPTIONS")
-	apiV1.HandleFunc("/users/{login}", ModifiedUser).Methods("PUT", "OPTIONS")
-	apiV1.HandleFunc("/session", Signout).Methods("DELETE", "OPTIONS")
-	apiV1.HandleFunc("/session", CheckSession).Methods("GET", "OPTIONS")
+	apiV1.HandleFunc("/users", userHandler.GetAll).Methods("GET", " OPTIONS")
+	apiV1.HandleFunc("/users", userHandler.AddUser).Methods("POST", "OPTIONS")
+	apiV1.HandleFunc("/users/{login}", userHandler.GetUsersByNick).Methods("GET", "OPTIONS")
+	apiV1.HandleFunc("/users/{login}", userHandler.ModifiedUser).Methods("PUT", "OPTIONS")
+	apiV1.HandleFunc("/session", userHandler.Signout).Methods("DELETE", "OPTIONS")
+	apiV1.HandleFunc("/session", userHandler.CheckSession).Methods("GET", "OPTIONS")
 	apiV1.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	})
 
 	siteMux := http.NewServeMux()
 	siteMux.Handle(prefix + "/", apiV1)
-	siteMux.HandleFunc("/signin", Signin)
+	siteMux.HandleFunc("/signin", userHandler.Signin)
 	siteMux.Handle("/favicon.ico", http.NotFoundHandler())
 
 	staticHandler := http.StripPrefix(

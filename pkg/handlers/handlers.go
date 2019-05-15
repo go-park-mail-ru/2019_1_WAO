@@ -1,4 +1,4 @@
-package router
+package handlers
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/mux"
 	"time"
 	"os"
+	"context"
 	"hash/fnv"
 	"io"
 	"io/ioutil"
@@ -22,14 +23,16 @@ const (
 	PathStaticServer = "./static"
 )
 
-func NewUserHandler(database *driver.DB) *Handler {
+func NewUserHandler(database *driver.DB, client auth.AuthCheckerClient) *Handler {
 	return &Handler{
 		hand: db.NewDataBase(database.DB),
+		auth: client,
 	}
 }
 
 type Handler struct {
 	hand methods.UserMethods
+	auth auth.AuthCheckerClient
 }
 
 func (h *Handler)GetAll(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +76,7 @@ func (h *Handler) AddUser(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("New record NICK is:", nickname)
 
-	sess, err := sessionManager.Create(
+	sess, err := h.auth.Create(
 		context.Background(),
 		&auth.UserData{
 			Login: nickname,
@@ -143,10 +146,13 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 	user, err := h.hand.UpdateUser(newData)
 	if err != nil {
 		log.Printf("Upload Error: %T\n %s\n", err, err.Error())
+		w.WriteHeader(http.StatusConflict)
+		return
 	}
+	json.NewEncoder(w).Encode(user)
 }
 
-func Signout(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Signout(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodOptions {
 		return
 	}
@@ -212,8 +218,8 @@ func (h *Handler) Signin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Upload Error: %T\n %s\n", err, err.Error())
 	}
-
-	token, err := sessionManager.Create(
+	token, err := h.auth.Create(
+	// token, err := sessionManager.Create(
 		context.Background(),
 		&auth.UserData{
 			Login:    user.Nickname,
@@ -235,13 +241,13 @@ func (h *Handler) Signin(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, cookie)
 }
 
-func getSession(r *http.Request) (*auth.UserData, error) {
+func getSession(r *http.Request, authClient auth.AuthCheckerClient) (*auth.UserData, error) {
 	cookieSessionID, err := r.Cookie("session_id")
 	if err != nil {
 		return nil, err
 	}
 
-	sess, err := sessionManager.Check(
+	sess, err := authClient.Check(
 		context.Background(),
 		&auth.Token{
 			Value: cookieSessionID.Value,
@@ -267,7 +273,7 @@ func uploadAvatar(r *http.Request) (urlAvatar string, err error) {
 		return "", err
 	}
 	defer file.Close()
-	log.Println("Molochnik")
+
 	if _, err := os.Stat(PathStaticServer); os.IsNotExist(err) {
 		err = os.Mkdir(PathStaticServer, 0700)
 		if err != nil {
@@ -305,7 +311,7 @@ func uploadAvatar(r *http.Request) (urlAvatar string, err error) {
 	return hashname, nil
 }
 
-func CheckSession(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CheckSession(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/session" {
 		log.Println(r.URL.Path, "ERROR")
 		w.WriteHeader(http.StatusNotFound)
@@ -318,7 +324,7 @@ func CheckSession(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	session, err := getSession(r)
+	session, err := getSession(r, h.auth)
 	if err != nil {
 		log.Println("Error checking of session")
 	}

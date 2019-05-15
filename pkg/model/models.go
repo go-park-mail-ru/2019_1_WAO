@@ -39,11 +39,3 @@ type UpdateDataExport struct {
 	Nickname string `json:"nickname, omitempty"`
 	Image    string `json:"image, omitempty"`
 }
-
-
-type DBService interface {
-	User(id int) (*User, error)
-	Users() ([]*User, error)
-	CreateUser(u *User) error
-	DeleteUser(id int) error
-}

@@ -44,6 +44,7 @@ func main() {
 		return
 	}
 
+	hostAuth := viper.GetString("authsrv.host") + ":" + viper.GetString("authsrv.port")
 	grpcConnect, err := grpc.Dial(
 		hostAuth,
 		grpc.WithInsecure(),
@@ -60,8 +61,7 @@ func main() {
 
 	port := viper.GetString("apisrv.port")
 	host := viper.GetString("apisrv.host")
-	hostAuth := viper.GetString("authsrv.host") + ":" + viper.GetString("authsrv.port")
-	router := router.CreateRouter("/api", "./static", auth.AuthCheckerClient, connection)
+	router := router.CreateRouter("/api", "./static", sessionManager, connection)
 
 	srv := &http.Server{
 		Handler:      router,

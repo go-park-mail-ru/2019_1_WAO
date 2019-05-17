@@ -115,8 +115,9 @@ func (player *Player) BlocksToAnotherCanvas(blocks []*Block, b float64) []*Block
 		blockCopy := *block
 
 		// blockCopy.Y = blockCopy.Y - (blocks[0].Y - b) + canvas.y
-		highestPlayer := player.room.HighestPlayer()
-		blockCopy.Y = blocks[0].Y - (2000 + blocks[0].Y - highestPlayer.canvas.y) - highestPlayer.Y
+		// highestPlayer := player.room.HighestPlayer()
+		// blockCopy.Y = blocks[0].Y - (2000 + blocks[0].Y - highestPlayer.canvas.y) - highestPlayer.Y
+		blockCopy.Y = blockCopy.Y - (blocks[0].Y - b) + player.canvas.y
 		newBlocks = append(newBlocks, &blockCopy)
 	}
 	return newBlocks

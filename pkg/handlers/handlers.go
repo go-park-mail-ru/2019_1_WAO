@@ -148,7 +148,7 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 		}
 		defer file.Close()
 		
-		conn := aws.NewConnectAWS("AKIAI6Y3UIKNFBGJHM6Q", "AFDW8/9CPz66dKRxGJuEvMEwf86fQY7VAEczDNjP", "", "us-east-2", "waojump", "media/")
+		conn := aws.NewConnectAWS("", "", "", "", "", "")
 		url, err = conn.UploadImage(file, handler)
 		if err != nil {
 			log.Printf("Upload Error: %T\n %s\n", err, err.Error())
@@ -163,22 +163,14 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusConflict)
 		return
 	}
-	// json.NewEncoder(w).Encode(user)
-	// w.Write([]byte(`
-	// 	<html>
-	// 		<body> <a href="` + url +
 
-	// 		`">Get avatar</a></body>
-	// 	</html>
-	// 	`))
 	b, err := json.Marshal(user)
 	if err != nil {
-		fmt.Println("error:", err)
+		log.Println("error:", err)
 	}
-	// log.Println(string(b))
+
 	str := string(b)
 	newstr := strings.Replace(str, "\\u0026", "&", -1)
-	// log.Println("######", newstr)
 	w.Write([]byte(newstr))
 }
 
@@ -288,59 +280,6 @@ func getSession(r *http.Request, authClient auth.AuthCheckerClient) (*auth.UserD
 	return sess, nil
 }
 
-// func uploadAvatar(r *http.Request) (urlAvatar string, err error) {
-// 	cookieVID, err := r.Cookie("VID")
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	log.Println("DEBUG", "CookieVID", cookieVID.Value)
-// 	err = r.ParseMultipartForm(5 * 1024 * 1024)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	file, handler, err := r.FormFile("image")
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	defer file.Close()
-
-// 	if _, err := os.Stat(PathStaticServer); os.IsNotExist(err) {
-// 		err = os.Mkdir(PathStaticServer, 0700)
-// 		if err != nil {
-// 			return "", err
-// 		}
-// 	}
-// 	dirname := cookieVID.Value
-// 	if _, err := os.Stat(PathStaticServer + "/" + dirname); os.IsNotExist(err) {
-// 		err = os.Mkdir(PathStaticServer+"/"+dirname, 0400)
-// 		if err != nil {
-// 			return "", err
-// 		}
-// 	}
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	hash := fnv.New64a()
-// 	hash.Write([]byte(handler.Filename + time.Now().Format("15:04:05.00000")))
-// 	hashname := string(hash.Sum64())
-// 	fmt.Println("HASH:", hashname)
-
-// 	saveFile, err := os.Create(PathStaticServer + "/" + dirname + "/" + hashname)
-// 	if err != nil {
-// 		log.Println(err.Error())
-// 		return "", err
-// 	}
-// 	defer saveFile.Close()
-
-// 	_, err = io.Copy(saveFile, file)
-// 	if err != nil {
-// 		log.Println(err.Error())
-// 		return "", err
-// 	}
-// 	return hashname, nil
-// }
-
 func imageUpload (r *http.Request) (urlAvatar string, err error) {
 	err = r.ParseMultipartForm(5 * 1024 * 1024)
 	if err != nil {
@@ -357,8 +296,7 @@ func imageUpload (r *http.Request) (urlAvatar string, err error) {
 	buffer := make([]byte, size)
 	file.Read(buffer)
 
-	// conn := aws.NewConnectAWS("AKIAI6Y3UIKNFBGJHM6Q", "AFDW8/9CPz66dKRxGJuEvMEwf86fQY7VAEczDNjP", "", "us-east-2", "waojump", "media/")
-	// urlAvatar, err = conn.UploadImage(handler, buffer)
+	
 	return "ttt", err
 }
 

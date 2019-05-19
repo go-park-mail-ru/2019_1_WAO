@@ -8,7 +8,7 @@ import (
 	"github.com/gorilla/mux"
 	"time"
 	"context"
-	"strings"
+	// "strings"
 	"io/ioutil"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/model"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/aws"
@@ -26,12 +26,14 @@ func NewUserHandler(database *driver.DB, client auth.AuthCheckerClient) *Handler
 	return &Handler{
 		hand: db.NewDataBase(database.DB),
 		auth: client,
+		// aws: setting,
 	}
 }
 
 type Handler struct {
 	hand methods.UserMethods
 	auth auth.AuthCheckerClient
+	// aws aws.ConnectSetting
 }
 
 func (h *Handler)GetAll(w http.ResponseWriter, r *http.Request) {
@@ -148,7 +150,17 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 		}
 		defer file.Close()
 		
-		conn := aws.NewConnectAWS("", "", "", "", "", "")
+		setting := &aws.ConnectSetting{
+			AccessKeyID: "",
+			SecretAccessKey: "",
+			Token: "",
+			Region: "",
+			NameBucket: "",
+			PathRootDir: "/",
+		}
+		conn := aws.NewConnectAWS(setting)
+
+		
 		url, err = conn.UploadImage(file, handler)
 		if err != nil {
 			log.Printf("Upload Error: %T\n %s\n", err, err.Error())
@@ -157,21 +169,20 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	newData.Image = url
-	user, err := h.hand.UpdateUser(newData)
-	if err != nil {
-		log.Printf("Upload Error: %T\n %s\n", err, err.Error())
-		w.WriteHeader(http.StatusConflict)
-		return
-	}
-
-	b, err := json.Marshal(user)
-	if err != nil {
-		log.Println("error:", err)
-	}
-
-	str := string(b)
-	newstr := strings.Replace(str, "\\u0026", "&", -1)
-	w.Write([]byte(newstr))
+	// user, err := h.hand.UpdateUser(newData)
+	// if err != nil {
+	// 	log.Printf("Upload Error: %T\n %s\n", err, err.Error())
+	// 	w.WriteHeader(http.StatusConflict)
+	// 	return
+	// }
+	// b, err := json.Marshal(user)
+	// if err != nil {
+	// 	log.Println("error:", err)
+	// }
+	// str := string(b)
+	// newstr := strings.Replace(str, "\\u0026", "&", -1)
+	// w.Write([]byte(newstr))
+	w.Write([]byte(url))
 }
 
 func (h *Handler) Signout(w http.ResponseWriter, r *http.Request) {
@@ -238,7 +249,7 @@ func (h *Handler) Signin(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.hand.CheckUser(data)
 	if err != nil {
-		log.Printf("Upload Error: %T\n %s\n", err, err.Error())
+		log.Printf("Check User Error: %T\n %s\n", err, err.Error())
 	}
 	token, err := h.auth.Create(
 	// token, err := sessionManager.Create(

@@ -23,18 +23,20 @@ type ConnectSetting struct {
 	PathRootDir string
 }
 
-func NewConnectAWS(keyID, secret, token, region, name, pathRoot string) *ConnectSetting {
+func NewConnectAWS(conn *ConnectSetting) *ConnectSetting {
 	return &ConnectSetting{
-		AccessKeyID: keyID,
-		SecretAccessKey: secret,
-		Token: token,
-		Region: region,
-		NameBucket: name,
-		PathRootDir: pathRoot,
+		AccessKeyID: conn.AccessKeyID,
+		SecretAccessKey: conn.SecretAccessKey,
+		Token: conn.Token,
+		Region: conn.Region,
+		NameBucket: conn.NameBucket,
+		PathRootDir: conn.PathRootDir,
 	}
 }
 
 func (s *ConnectSetting) UploadImage(file multipart.File, fileHeader *multipart.FileHeader) (url string, err error) {
+
+	log.Println("Secure Struct: ", s)
 	str := fileHeader.Filename + string(time.Now().Format("15:04:05.00000"))
 	hash := sha1.New()
 	hash.Write([]byte(str))
@@ -47,29 +49,25 @@ func (s *ConnectSetting) UploadImage(file multipart.File, fileHeader *multipart.
 		log.Println("Error credentials: ", err)
 	}
 
-	cfg := aws.NewConfig().WithRegion("us-east-2").WithCredentials(creds)
+	cfg := aws.NewConfig().WithRegion("").WithCredentials(creds)
 	svc := s3.New(session.New(), cfg)
 
 	size := fileHeader.Size
 	buffer := make([]byte, size)
 	file.Read(buffer)
-	fileBytes := bytes.NewReader(buffer)
 	fileType := http.DetectContentType(buffer)
 
-	path := "/media/" + hashSHA1
+	path := "//" + hashSHA1
 	params := &s3.PutObjectInput{
-		Bucket:        aws.String("waojump"),
+		Bucket:        aws.String(""),
 		Key:           aws.String(path),
-		Body:          fileBytes,
-		ContentLength: aws.Int64(size),
+		ACL:           aws.String("public-read"),
 		ContentType:   aws.String(fileType),
+		Body:          bytes.NewReader(buffer),
+		Metadata: map[string]*string{
+			"key-f": aws.String("value-bar"),
+		},
 	}
-	// paramsAcl := &s3.PutObjectAcl{
-	// 	ACL:       String("public-read"),
-	// 	Key:       String("any-file"),
-	// 	VersionId: String("2"),
-	// 	Bucket:    String("other-bucket"),
-	// }
 
 	_, err = svc.PutObject(params)
 	if err != nil {
@@ -79,10 +77,12 @@ func (s *ConnectSetting) UploadImage(file multipart.File, fileHeader *multipart.
 		Bucket: aws.String("waojump"),
 		Key:    aws.String("media/" + hashSHA1),
 	})
-	url, err = req.Presign(15 * time.Minute)
+	url, err = req.Presign(168 * time.Hour)
 
 	if err != nil {
 		log.Println("Failed to sign request", err)
 	}
+	url += "@@@" + "https://s3." + s.Region + ".amazonaws.com/" +
+	s.NameBucket + "/" + "media/" + hashSHA1
 	return 
 }

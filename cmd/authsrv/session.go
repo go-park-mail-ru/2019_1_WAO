@@ -33,8 +33,9 @@ func generateToken(in *auth.UserData) (token string, err error) {
 		"agent":    in.Agent,
 		"exp":      time.Now().Add(expiration).Unix(),
 	})
+	log.Printf("SECRET KEY (%T) %s", secret, secret)
 
-	tokenString, err := rawToken.SignedString(secret)
+	tokenString, err := rawToken.SignedString([]byte(secret))
 	if err != nil {
 		return "", err
 	}
@@ -46,7 +47,7 @@ func (sm *SessionManager) Create(ctx context.Context, in *auth.UserData) (*auth.
 	log.Println("call Create", in)
 	token, err := generateToken(in)
 	if err != nil {
-		log.Println("Token does not create:", err.Error())
+		log.Println("Token does not create:", err)
 		return nil, err
 	}
 	id := &auth.Token{
@@ -61,13 +62,12 @@ func (sm *SessionManager) Create(ctx context.Context, in *auth.UserData) (*auth.
 // Check validation of token
 func (sm *SessionManager) Check(ctx context.Context, tokenString *auth.Token) (*auth.UserData, error) {
 	log.Println("call Check", tokenString)
-
 	var err error
 	token, err := jwt.Parse(tokenString.Value, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, err
 		}
-		return secret, nil
+		return []byte(secret), nil
 	})
 	if err != nil {
 		log.Printf("Unexpected signing method: %v", token.Header["alg"])

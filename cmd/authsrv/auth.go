@@ -24,12 +24,12 @@ func main() {
 		log.Println("Cannot read config", err)
 		return
 	}
+	secret = viper.GetString("secretkey")
+
 	userDB := viper.GetString("db.user")
 	userPass := viper.GetString("db.password")
 	nameDB := viper.GetString("db.name")
 	sslMode := viper.GetString("db.sslmode")
-	secret = viper.GetString("secretkey")
-
 	connectStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=%s",
 		userDB, userPass, nameDB, sslMode)
 	var err error

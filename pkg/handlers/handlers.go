@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"encoding/json"
 	"github.com/gorilla/mux"
+	"golang.org/x/crypto/bcrypt"
 	"time"
 	"context"
 	"io/ioutil"
@@ -15,10 +16,6 @@ import (
 	"github.com/DmitriyPrischep/backend-WAO/pkg/driver"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/auth"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/methods"
-)
-
-const (
-	PathStaticServer = "./static"
 )
 
 func NewUserHandler(database *driver.DB, client auth.AuthCheckerClient, setting *aws.ConnectSetting) *Handler {
@@ -69,11 +66,18 @@ func (h *Handler) AddUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("Generate hash password error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	user.Password = string(hashedPassword)
+
 	nickname, err := h.hand.CreateUser(user)
 	if err != nil {
 		log.Printf("Error type: %T: %s\n", err, err.Error())
 	}
-
 	log.Println("New record NICK is:", nickname)
 
 	sess, err := h.auth.Create(
@@ -83,6 +87,7 @@ func (h *Handler) AddUser(w http.ResponseWriter, r *http.Request) {
 			Agent: r.UserAgent(),
 		})
 	if err != nil {
+		log.Println("Authentification server is not available: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -131,6 +136,16 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 	newData.Email = r.FormValue("email")
 	newData.Password = r.FormValue("password")
 	newData.Nickname = r.FormValue("nickname")
+	if len(newData.Password) > 5 {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newData.Password), bcrypt.DefaultCost)
+		if err != nil {
+			log.Printf("Generate hash password error: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		newData.Password = string(hashedPassword)
+	}
+
 	var url string
 	if _, _, err := r.FormFile("image"); err != nil {
 		log.Println("Field with this name not exist")
@@ -150,11 +165,9 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 		defer file.Close()
 		
 		conn := aws.NewConnectAWS(h.aws)
-
-		
 		url, err = conn.UploadImage(file, handler)
 		if err != nil {
-			log.Printf("Upload Error: %T\n %s\n", err, err.Error())
+			log.Printf("Upload image error: %T\n %s\n", err, err.Error())
 			w.WriteHeader(http.StatusTeapot)
 			return
 		}
@@ -162,7 +175,7 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 	newData.Image = url
 	user, err := h.hand.UpdateUser(newData)
 	if err != nil {
-		log.Printf("Upload Error: %T\n %s\n", err, err.Error())
+		log.Printf("Update User data error: %T\n %s\n", err, err.Error())
 		w.WriteHeader(http.StatusConflict)
 		return
 	}
@@ -176,7 +189,7 @@ func (h *Handler) Signout(w http.ResponseWriter, r *http.Request) {
 
 	val, err := r.Cookie("session_id")
 	if err != nil {
-		log.Println("Error: ", val)
+		log.Println("Error: cookie not found", val)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -188,13 +201,6 @@ func (h *Handler) Signout(w http.ResponseWriter, r *http.Request) {
 		Expires:  time.Now().AddDate(0, -1, 0),
 		HttpOnly: true,
 	})
-	http.SetCookie(w, &http.Cookie{
-		Name:     "VID",
-		Value:    "",
-		Expires:  time.Now().AddDate(0, -1, 0),
-		HttpOnly: true,
-	})
-
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -231,12 +237,18 @@ func (h *Handler) Signin(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("User -- ", data)
 
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(data.Password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("Generate hash password error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	data.Password = string(hashedPassword)
 	user, err := h.hand.CheckUser(data)
 	if err != nil {
 		log.Printf("Check User Error: %T\n %s\n", err, err.Error())
 	}
 	token, err := h.auth.Create(
-	// token, err := sessionManager.Create(
 		context.Background(),
 		&auth.UserData{
 			Login:    user.Nickname,

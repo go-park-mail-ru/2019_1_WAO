@@ -6,6 +6,7 @@ import (
 	"github.com/DmitriyPrischep/backend-WAO/pkg/handlers"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/driver"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/auth"
+	"github.com/DmitriyPrischep/backend-WAO/pkg/aws"
 )
 
 var (
@@ -13,8 +14,9 @@ var (
 	Auth auth.AuthCheckerClient
 )
 
-func CreateRouter(prefix, pathToStaticFiles string, serviceSession auth.AuthCheckerClient, db *driver.DB) *http.ServeMux {
-	userHandler := handlers.NewUserHandler(db, serviceSession)
+//CreateRouter make router consist of 2 part Gorilla Mux and standart router
+func CreateRouter(prefix, pathToStaticFiles string, serviceSession auth.AuthCheckerClient, db *driver.DB, setting *aws.ConnectSetting) *http.ServeMux {
+	userHandler := handlers.NewUserHandler(db, serviceSession, setting)
 	PathStaticServer = pathToStaticFiles
 	Auth = serviceSession
 	actionMux := mux.NewRouter()

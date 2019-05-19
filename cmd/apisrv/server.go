@@ -10,6 +10,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/DmitriyPrischep/backend-WAO/pkg/auth"
+	"github.com/DmitriyPrischep/backend-WAO/pkg/aws"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/driver"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/router"
 	"github.com/spf13/viper"
@@ -61,7 +62,17 @@ func main() {
 
 	port := viper.GetString("apisrv.port")
 	host := viper.GetString("apisrv.host")
-	router := router.CreateRouter("/api", "./static", sessionManager, connection)
+
+	setting := &aws.ConnectSetting{
+		AccessKeyID:     viper.GetString("aws.keyID"),
+		SecretAccessKey: viper.GetString("aws.secretKey"),
+		Token:           viper.GetString(""),
+		Region:          viper.GetString("aws.region"),
+		NameBucket:      viper.GetString("aws.bucket"),
+		PathRootDir:     viper.GetString("aws.root"),
+	}
+
+	router := router.CreateRouter("/api", "./static", sessionManager, connection, setting)
 
 	srv := &http.Server{
 		Handler:      router,

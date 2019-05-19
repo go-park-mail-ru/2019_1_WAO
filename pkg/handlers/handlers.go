@@ -8,7 +8,6 @@ import (
 	"github.com/gorilla/mux"
 	"time"
 	"context"
-	// "strings"
 	"io/ioutil"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/model"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/aws"
@@ -22,18 +21,18 @@ const (
 	PathStaticServer = "./static"
 )
 
-func NewUserHandler(database *driver.DB, client auth.AuthCheckerClient) *Handler {
+func NewUserHandler(database *driver.DB, client auth.AuthCheckerClient, setting *aws.ConnectSetting) *Handler {
 	return &Handler{
 		hand: db.NewDataBase(database.DB),
 		auth: client,
-		// aws: setting,
+		aws: setting,
 	}
 }
 
 type Handler struct {
 	hand methods.UserMethods
 	auth auth.AuthCheckerClient
-	// aws aws.ConnectSetting
+	aws *aws.ConnectSetting
 }
 
 func (h *Handler)GetAll(w http.ResponseWriter, r *http.Request) {
@@ -150,15 +149,7 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 		}
 		defer file.Close()
 		
-		setting := &aws.ConnectSetting{
-			AccessKeyID: "",
-			SecretAccessKey: "",
-			Token: "",
-			Region: "",
-			NameBucket: "",
-			PathRootDir: "/",
-		}
-		conn := aws.NewConnectAWS(setting)
+		conn := aws.NewConnectAWS(h.aws)
 
 		
 		url, err = conn.UploadImage(file, handler)
@@ -169,20 +160,13 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	newData.Image = url
-	// user, err := h.hand.UpdateUser(newData)
-	// if err != nil {
-	// 	log.Printf("Upload Error: %T\n %s\n", err, err.Error())
-	// 	w.WriteHeader(http.StatusConflict)
-	// 	return
-	// }
-	// b, err := json.Marshal(user)
-	// if err != nil {
-	// 	log.Println("error:", err)
-	// }
-	// str := string(b)
-	// newstr := strings.Replace(str, "\\u0026", "&", -1)
-	// w.Write([]byte(newstr))
-	w.Write([]byte(url))
+	user, err := h.hand.UpdateUser(newData)
+	if err != nil {
+		log.Printf("Upload Error: %T\n %s\n", err, err.Error())
+		w.WriteHeader(http.StatusConflict)
+		return
+	}
+	json.NewEncoder(w).Encode(user)
 }
 
 func (h *Handler) Signout(w http.ResponseWriter, r *http.Request) {

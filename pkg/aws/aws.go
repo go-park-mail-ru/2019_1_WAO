@@ -49,7 +49,7 @@ func (s *ConnectSetting) UploadImage(file multipart.File, fileHeader *multipart.
 		log.Println("Error credentials: ", err)
 	}
 
-	cfg := aws.NewConfig().WithRegion("").WithCredentials(creds)
+	cfg := aws.NewConfig().WithRegion(s.Region).WithCredentials(creds)
 	svc := s3.New(session.New(), cfg)
 
 	size := fileHeader.Size
@@ -57,9 +57,9 @@ func (s *ConnectSetting) UploadImage(file multipart.File, fileHeader *multipart.
 	file.Read(buffer)
 	fileType := http.DetectContentType(buffer)
 
-	path := "//" + hashSHA1
+	path := "/" + s.PathRootDir + hashSHA1
 	params := &s3.PutObjectInput{
-		Bucket:        aws.String(""),
+		Bucket:        aws.String(s.NameBucket),
 		Key:           aws.String(path),
 		ACL:           aws.String("public-read"),
 		ContentType:   aws.String(fileType),
@@ -74,15 +74,15 @@ func (s *ConnectSetting) UploadImage(file multipart.File, fileHeader *multipart.
 		log.Println("Put object error: ", err.Error())
 	}
 	req, _ := svc.GetObjectRequest(&s3.GetObjectInput{
-		Bucket: aws.String("waojump"),
-		Key:    aws.String("media/" + hashSHA1),
+		Bucket: aws.String(s.NameBucket),
+		Key:    aws.String(s.PathRootDir + hashSHA1),
 	})
 	url, err = req.Presign(168 * time.Hour)
 
 	if err != nil {
 		log.Println("Failed to sign request", err)
 	}
-	url += "@@@" + "https://s3." + s.Region + ".amazonaws.com/" +
-	s.NameBucket + "/" + "media/" + hashSHA1
+	url = "https://s3." + s.Region + ".amazonaws.com/" +
+	s.NameBucket + "/" + s.PathRootDir + hashSHA1
 	return 
 }

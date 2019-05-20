@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/auth"
-	"database/sql"
-	_ "github.com/lib/pq"
 	"log"
 	"net"
 
@@ -13,7 +11,6 @@ import (
 )
 
 var (
-	db *sql.DB
 	secret string
 )
 
@@ -25,20 +22,7 @@ func main() {
 		return
 	}
 	secret = viper.GetString("secretkey")
-
-	userDB := viper.GetString("db.user")
-	userPass := viper.GetString("db.password")
-	nameDB := viper.GetString("db.name")
-	sslMode := viper.GetString("db.sslmode")
-	connectStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=%s",
-		userDB, userPass, nameDB, sslMode)
-	var err error
-	db, err = sql.Open("postgres", connectStr)
-	if err != nil {
-		log.Printf("No connection to DB: %v", err)
-	}
 	
-	defer db.Close()
 	port := viper.GetString("authsrv.port")
 	host := viper.GetString("authsrv.host")
 	listener, err := net.Listen("tcp", ":" + port)

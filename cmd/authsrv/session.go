@@ -60,10 +60,12 @@ func (sm *SessionManager) Create(ctx context.Context, in *auth.UserData) (*auth.
 }
 
 // Check validation of token
-func (sm *SessionManager) Check(ctx context.Context, tokenString *auth.Token) (*auth.UserData, error) {
-	log.Println("call Check", tokenString)
+func (sm *SessionManager) Check(ctx context.Context, in *auth.Token) (*auth.UserData, error) {
+	log.Println("call Check")
+	log.Println("CMD")
+	log.Println(in)
 	var err error
-	token, err := jwt.Parse(tokenString.Value, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(in.Value, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, err
 		}

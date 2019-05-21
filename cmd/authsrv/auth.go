@@ -5,7 +5,6 @@ import (
 	"github.com/DmitriyPrischep/backend-WAO/pkg/auth"
 	"log"
 	"net"
-
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 )
@@ -31,9 +30,7 @@ func main() {
 	}
 	
 	server := grpc.NewServer()
-
 	auth.RegisterAuthCheckerServer(server, NewSessionManager())
-
 	fmt.Println("Auth Service starting server at http://" + host + ":" + port)
 	server.Serve(listener)
 }

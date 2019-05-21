@@ -1,6 +1,8 @@
 package router
 
 import (
+	"log"
+	"time"
 	"net/http"
 	"github.com/gorilla/mux"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/handlers"
@@ -14,18 +16,77 @@ var (
 	Auth auth.AuthCheckerClient
 )
 
+const (
+	frontAddres = "http://127.0.0.1:3000"
+)
+
+// func authMiddleware(next http.Handler) http.Handler {
+// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		log.Println("authMiddleware", r.URL.Path)
+// 		cookie, _ := r.Cookie("session_id")
+// 		log.Println("Token:", cookie)
+
+// 		if _, ok, err := checkAuthorization(*r); !ok {
+// 			w.WriteHeader(http.StatusUnauthorized)
+// 			log.Println(err.Error())
+// 			return
+// 		}
+// 		next.ServeHTTP(w, r)
+// 	})
+// }
+
+func logMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("logMiddleware", r.URL.Path)
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		log.Printf("[%s] %s, %s %s\n",
+			r.Method, r.RemoteAddr, r.URL.Path, time.Since(start))
+	})
+}
+
+func panicMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("panicMiddleware", r.URL.Path)
+		defer func() {
+			if err := recover(); err != nil {
+				log.Println("recovered", err)
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+func CORSMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("CORSMiddleware", r.URL.Path)
+		//HARD URL
+		log.Println(r.Header.Get("Origin"), "===", frontAddres)
+		if origin := r.Header.Get("Origin"); origin == frontAddres {
+			w.Header().Set("Access-Control-Allow-Origin", frontAddres)
+			w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+			w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With, Content-Type, Origin")
+			w.Header().Set("Content-Security-Policy", "default-src 'self'")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 //CreateRouter make router consist of 2 part Gorilla Mux and standart router
-func CreateRouter(prefix, pathToStaticFiles string, serviceSession auth.AuthCheckerClient, db *driver.DB, setting *aws.ConnectSetting) *http.ServeMux {
+func CreateRouter(prefix, pathToStaticFiles string, serviceSession auth.AuthCheckerClient, db *driver.DB, setting *aws.ConnectSetting) http.Handler {
 	userHandler := handlers.NewUserHandler(db, serviceSession, setting)
 	PathStaticServer = pathToStaticFiles
 	Auth = serviceSession
 	actionMux := mux.NewRouter()
 	apiV1 := actionMux.PathPrefix(prefix).Subrouter()
 
-	apiV1.HandleFunc("/users", userHandler.GetAll).Methods("GET", " OPTIONS")
+	apiV1.HandleFunc("/users", userHandler.GetAll).Methods("GET", "OPTIONS")
 	apiV1.HandleFunc("/users", userHandler.AddUser).Methods("POST", "OPTIONS")
 	apiV1.HandleFunc("/users/{login}", userHandler.GetUsersByNick).Methods("GET", "OPTIONS")
-	apiV1.HandleFunc("/users/man/{login}", userHandler.ModifiedUser) //.Methods("PUT", "OPTIONS")
+	// apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(GetUser))).Methods("GET")
+	apiV1.HandleFunc("/users/{login}", userHandler.ModifiedUser).Methods("PUT", "OPTIONS")
 	apiV1.HandleFunc("/session", userHandler.Signout).Methods("DELETE", "OPTIONS")
 	apiV1.HandleFunc("/session", userHandler.CheckSession).Methods("GET", "OPTIONS")
 	apiV1.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -51,37 +112,6 @@ func CreateRouter(prefix, pathToStaticFiles string, serviceSession auth.AuthChec
 		
 	})
 
-	siteMux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		var loginFormTmpl = []byte(`
-		<html>
-			<body>
-			<form action="/signin" method="post">
-				Login: <input type="text" name="login">
-				Password: <input type="password" name="password">
-				<input type="submit" value="Login">
-			</form>
-			</body>
-		</html>
-		`)
-		w.Write(loginFormTmpl)
-	})
-	siteMux.HandleFunc("/reg", func(w http.ResponseWriter, r *http.Request) {
-		var signUpForm = []byte(`
-		<html>
-			<body>
-			<form action="/api/users" method="post">
-				Email: <input type="text" name="email">
-				Login: <input type="text" name="login">
-				Password: <input type="password" name="password">
-				<input type="submit" value="Reg">
-			</form>
-			</body>
-		</html>
-		`)
-		w.Write(signUpForm)
-		return
-	})
-
 	siteMux.HandleFunc("/update", func(w http.ResponseWriter, r *http.Request) {
 		var signUpForm = []byte(`
 		<html>
@@ -100,12 +130,15 @@ func CreateRouter(prefix, pathToStaticFiles string, serviceSession auth.AuthChec
 		return
 	})
 
-
 	staticHandler := http.StripPrefix(
 		"/data/",
 		http.FileServer(http.Dir(pathToStaticFiles)),
 	)
 	siteMux.Handle("/data/", staticHandler)
 
-	return siteMux
+	siteHandler := CORSMiddleware(siteMux)
+	siteHandler = logMiddleware(siteHandler)
+	siteHandler = panicMiddleware(siteHandler)
+
+	return siteHandler
 }

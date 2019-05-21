@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"encoding/json"
 	"github.com/gorilla/mux"
-	"golang.org/x/crypto/bcrypt"
+	// "golang.org/x/crypto/bcrypt"
 	"time"
 	"context"
 	"io/ioutil"
@@ -43,7 +43,9 @@ func (h *Handler)GetAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(users)
+	json.NewEncoder(w).Encode(model.SendUsers{
+		Users: users,
+	})
 }
 
 func (h *Handler) AddUser(w http.ResponseWriter, r *http.Request) {
@@ -65,14 +67,16 @@ func (h *Handler) AddUser(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	log.Println("InputPASS: ", user.Password)
+	// hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	// if err != nil {
+	// 	log.Printf("Generate hash password error: %v", err)
+	// 	w.WriteHeader(http.StatusInternalServerError)
+	// 	return
+	// }
+	// user.Password = string(hashedPassword)
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	if err != nil {
-		log.Printf("Generate hash password error: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	user.Password = string(hashedPassword)
+	log.Println("DEBUG: ", user)
 
 	nickname, err := h.hand.CreateUser(user)
 	if err != nil {
@@ -113,11 +117,10 @@ func (h *Handler) GetUsersByNick(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if user.Image != "" {
-		user.Image = fmt.Sprintf(`/data/%d/%s`, user.ID, user.Image)
+		user.Image = `https://s3.us-east-2.amazonaws.com/waojump/media/` + user.Image
 	}
 	json.NewEncoder(w).Encode(user)
-
-	http.Error(w, `{"error": "This user is not found"}`, http.StatusNotFound)
+	// http.Error(w, `{"error": "This user is not found"}`, http.StatusNotFound)
 }
 
 func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
@@ -136,15 +139,15 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 	newData.Email = r.FormValue("email")
 	newData.Password = r.FormValue("password")
 	newData.Nickname = r.FormValue("nickname")
-	if len(newData.Password) > 5 {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newData.Password), bcrypt.DefaultCost)
-		if err != nil {
-			log.Printf("Generate hash password error: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		newData.Password = string(hashedPassword)
-	}
+	// if len(newData.Password) > 5 {
+	// 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newData.Password), bcrypt.DefaultCost)
+	// 	if err != nil {
+	// 		log.Printf("Generate hash password error: %v", err)
+	// 		w.WriteHeader(http.StatusInternalServerError)
+	// 		return
+	// 	}
+	// 	newData.Password = string(hashedPassword)
+	// }
 
 	var url string
 	if _, _, err := r.FormFile("image"); err != nil {
@@ -218,7 +221,7 @@ func (h *Handler) Signin(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-
+	
 	body, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
@@ -230,20 +233,16 @@ func (h *Handler) Signin(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 	log.Println("Structure: ", data)
+		
+	// hashedPassword, err := bcrypt.GenerateFromPassword([]byte(data.Password), bcrypt.DefaultCost)
+	// if err != nil {
+	// 	log.Printf("Generate hash password error: %v", err)
+	// 	w.WriteHeader(http.StatusInternalServerError)
+	// 	return
+	// }
+	// data.Password = string(hashedPassword)
+	log.Println("DEBUG Structure AFTER: ", data)
 
-	data = model.SigninUser{
-		Nickname: r.FormValue("login"),
-		Password: r.FormValue("password"),
-	}
-	log.Println("User -- ", data)
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(data.Password), bcrypt.DefaultCost)
-	if err != nil {
-		log.Printf("Generate hash password error: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	data.Password = string(hashedPassword)
 	user, err := h.hand.CheckUser(data)
 	if err != nil {
 		log.Printf("Check User Error: %T\n %s\n", err, err.Error())
@@ -275,7 +274,7 @@ func getSession(r *http.Request, authClient auth.AuthCheckerClient) (*auth.UserD
 	if err != nil {
 		return nil, err
 	}
-
+	log.Println("CookSession", cookieSessionID.Value)
 	sess, err := authClient.Check(
 		context.Background(),
 		&auth.Token{
@@ -285,26 +284,6 @@ func getSession(r *http.Request, authClient auth.AuthCheckerClient) (*auth.UserD
 		return nil, err
 	}
 	return sess, nil
-}
-
-func imageUpload (r *http.Request) (urlAvatar string, err error) {
-	err = r.ParseMultipartForm(5 * 1024 * 1024)
-	if err != nil {
-		log.Println("Multipart form parse errror", err.Error())
-		return "", err
-	}
-	file, handler, err := r.FormFile("image")
-	if err != nil {
-		log.Println("Error read file for 'image' field:", err.Error())
-		return "", err
-	}
-	defer file.Close()
-	size := handler.Size
-	buffer := make([]byte, size)
-	file.Read(buffer)
-
-	
-	return "ttt", err
 }
 
 func (h *Handler) CheckSession(w http.ResponseWriter, r *http.Request) {

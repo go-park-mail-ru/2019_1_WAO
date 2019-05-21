@@ -41,15 +41,18 @@ func (s *DBService) GetUsers() (users []model.User, err error) {
 	return users, err
 }
 func (s *DBService) GetUser(userdata model.NicknameUser) (user *model.User, err error) {
+	log.Println("DB DEBUG input(user)", userdata)
+	tmp := model.User{}
 	row := s.DB.QueryRow(`SELECT id, email, nickname, scope, games, wins, image 
 						FROM users WHERE nickname = $1;`, userdata.Nickname)
 
-	switch err := row.Scan(&user.ID, &user.Email, &user.Nick, &user.Score,
-		&user.Games, &user.Wins, &user.Image); err {
+	switch err := row.Scan(&tmp.ID, &tmp.Email, &tmp.Nick, &tmp.Score,
+		&tmp.Games, &tmp.Wins, &tmp.Image); err {
 	case sql.ErrNoRows:
 		log.Println("Method GetUser: No rows were returned!")
 		return nil, err
 	case nil:
+		user = &tmp
 		return user, err
 	default:
 		log.Printf("Error type: %T: Method GetUser: %s\n", err, err.Error())
@@ -60,7 +63,7 @@ func (s *DBService) GetUser(userdata model.NicknameUser) (user *model.User, err 
 func (s *DBService) CreateUser(user model.UserRegister) (nickname string, err error) {
 	err = s.DB.QueryRow(`INSERT INTO users (email, nickname, password, scope, games, wins, image)
 	VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING nickname`,
-	user.Email, user.Nickname, user.Password, 0, 0, 0, "").Scan(&nickname)
+	user.Email, user.Nickname, user.Password, 0, 0, 0, "default_image.png").Scan(&nickname)
 	if err != nil {
 		log.Printf("Error inserting record: %v", err)
 		return "", err
@@ -100,12 +103,15 @@ func (s *DBService) UpdateUser(user model.UpdateDataImport) (out model.UpdateDat
 	}
 }
 func (s *DBService) CheckUser(user model.SigninUser) (out *model.UserRegister, err error) {
+	log.Println("DB DEBUG input(user)", user)
+	tmp := model.UserRegister{}
 	row := s.DB.QueryRow(`SELECT email, nickname, password FROM users WHERE nickname = $1 AND password = $2`, user.Nickname, user.Password)
-	switch err := row.Scan(&out.Email, &out.Nickname, &out.Password); err {
+	switch err := row.Scan(&tmp.Email, &tmp.Nickname, &tmp.Password); err {
 	case sql.ErrNoRows:
 		log.Println("No rows were returned!")
 		return nil, err
 	case nil:
+		out = &tmp
 		return out, err		
 	default:
 		log.Println("Method Signin User: ", err)

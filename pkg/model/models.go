@@ -6,10 +6,14 @@ type UserRegister struct {
 	Nickname string `json:"nickname, omitempty"`
 }
 
+type SendUsers struct {
+	Users []User `json:"users, string, omitempty"`
+}
+
 type User struct {
 	ID       int    `json:"id, string, omitempty"`
 	Email    string `json:"email, omitempty"`
-	password string `json:"password, omitempty"`
+	password string `json:"-,"`
 	Nick     string `json:"nickname, omitempty"`
 	Score    int    `json:"score, string, omitempty"`
 	Games    int    `json:"games, string, omitempty"`

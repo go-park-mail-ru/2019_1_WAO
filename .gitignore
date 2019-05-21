@@ -1,2 +1,5 @@
 static/
 docs/
+*.log
+*.txt
+*.out

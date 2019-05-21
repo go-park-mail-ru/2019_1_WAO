@@ -68,30 +68,20 @@ func CircleDraw(player *Player) {
 	}
 }
 
-// func Collision(delay float64, player *Player) {
-//     // if (command.idP !== 0) {
-//     //   alert("1");
-//     // }
-//     var plate *Block = player.SelectNearestBlock(&player.room.Blocks)
-// 	if plate == nil {
-// 		log.Printf("* Plate is nil * for player id%d", player.IdP)
-// 		return
-// 	}
-//     if (player.Dy >= 0 && !player.StateScrollMap || player.Dy - koefScrollSpeed >= 0 && player.stateScrollMap) {
-
-//       if ((player.Dy >= 0 && !player.StateScrollMap) && (player.Y + player.Dy * command.Delay < plate.Y - plate.h) || (player.Dy - koefScrollSpeed >= 0 && player.StateScrollMap) && (player.Y + (player.Dy - koefScrollSpeed) * command.Delay < plate.Y - plate.)) {
-//         return
-//       }
-//       // Если был включен счетчик очков, то передать в него пластину от которой будем прыгать
-//     //   if (this.score) {
-//     //     this.score.giveCurrentPlate(plate);
-//     //   }
-//       player.Y = plate.Y - plate.h
-// 		// fmt.Println("******** COLLISION WAS OCCURED ********")
-// 		player.Jump()
-//     }
-//   }
-
+func KillPlayer(player *Player) {
+	player.room.Players.Range(func(_, player interface{}) bool {
+		idPlayer, err := json.Marshal(player.(*Player).IdP)
+		if err != nil {
+			log.Println("Error with encoding player's id was occured", err)
+			return true
+		}
+		player.(*Player).SendMessage(&Message{
+			Type:    "lose",
+			Payload: idPlayer,
+		})
+		return true
+	})
+}
 func Collision(delay float64, player *Player) {
 	var plate *Block = player.SelectNearestBlock(&player.room.Blocks)
 	if plate == nil {
@@ -125,10 +115,10 @@ func (player *Player) BlocksToAnotherCanvas(blocks []*Block, b float64) []*Block
 
 // Virtual transfer player to anotherPlayer's canvas
 func (player *Player) playerToAnotherCanvas(anotherPlayer *Player) *Player {
-	player.room.mutexEngine.Lock()
+	// player.room.mutexEngine.Lock()
 	playerCopy := *player
 	playerCopy.Y += (anotherPlayer.canvas.y - player.canvas.y)
-	player.room.mutexEngine.Unlock()
+	// player.room.mutexEngine.Unlock()
 	return &playerCopy
 }
 
@@ -144,6 +134,7 @@ func (room *Room) AllPlayersToAnotherCanvas(player *Player) []*Player {
 func (room *Room) HighestPlayer() *Player {
 	var maxYPlayer *Player = nil
 	maxY := math.MaxFloat64
+	room.mutexEngine.Lock()
 	room.Players.Range(func(_, player interface{}) bool {
 		if player.(*Player).Y < maxY {
 			maxY = player.(*Player).Y
@@ -151,17 +142,30 @@ func (room *Room) HighestPlayer() *Player {
 		}
 		return true
 	})
+	room.mutexEngine.Unlock()
 	return maxYPlayer
 }
 func Engine(player *Player) {
+	defer func() {
+		if e := recover(); e != nil {
+			log.Println("Error at physic treatment was occured (function Engine)", e)
+		}
+	}()
 	for {
 		select {
 		case <-player.engineDone:
 			return
 		default:
+			if player.Y-player.H > player.canvas.y+700 {
+				KillPlayer(player)
+				RemovePlayer(player)
+				return
+			}
 			if player.Y-player.canvas.y <= maxScrollHeight && player.stateScrollMap == false {
+				player.room.mutexEngine.Lock()
 				player.stateScrollMap = true // Сигнал запрещающий выполнять этот код еще раз пока не выполнится else
 				player.canvas.dy = -koefScrollSpeed
+				player.room.mutexEngine.Unlock()
 				log.Printf("Canvas with player id%d is moving...\n", player.IdP)
 				if player == player.room.HighestPlayer() {
 					player.room.mutexEngine.Lock()
@@ -176,17 +180,22 @@ func Engine(player *Player) {
 						return true
 					})
 					// Send new map to players
+					player.room.mutexEngine.Lock()
 					lastBlock := player.room.Blocks[len(player.room.Blocks)-1]
+					player.room.mutexEngine.Unlock()
 					beginY := lastBlock.Y - 20
 					b := float64(koefHeightOfMaxGenerateSlice) + (lastBlock.Y - player.canvas.y)
 					k := uint16(koefGeneratePlates * (float64(koefHeightOfMaxGenerateSlice) + (lastBlock.Y - player.canvas.y)))
 					newBlocks := FieldGenerator(beginY, b, k)
+					if len(newBlocks) == 0 {
+						log.Panicf("beginY: %f, b: %f, k: %d\n", beginY, b, k)
+					}
 					player.room.mutexEngine.Lock()
 					player.room.Blocks = append(player.room.Blocks, newBlocks...)
 					player.room.mutexEngine.Unlock()
 					var buffer []byte
 					var err error
-
+					player.room.mutexEngine.Lock()
 					player.room.Players.Range(func(_, playerWithCanvas interface{}) bool {
 						var players []*Player
 						player.room.Players.Range(func(_, player interface{}) bool {
@@ -203,6 +212,7 @@ func Engine(player *Player) {
 							Players: players,
 						}); err != nil {
 							fmt.Println("Error encoding new blocks", err)
+							player.room.mutexEngine.Unlock()
 							return false // ?
 						}
 						playerWithCanvas.(*Player).SendMessage(&Message{
@@ -215,6 +225,7 @@ func Engine(player *Player) {
 						}
 						return true
 					})
+					player.room.mutexEngine.Unlock()
 					log.Println("******* MAP WAS SENDED *******")
 					log.Println("New blocks:")
 					for _, block := range newBlocks {
@@ -223,8 +234,10 @@ func Engine(player *Player) {
 
 				}
 			} else if player.Y-player.canvas.y >= minScrollHeight && player.stateScrollMap == true {
+				player.room.mutexEngine.Lock()
 				player.stateScrollMap = false // Scrolling was finished
 				player.canvas.dy = 0
+				player.room.mutexEngine.Unlock()
 				log.Printf("Canvas with player id%d was stopped...\n", player.IdP)
 				// player.room.mutex.Lock()
 				// log.Println("Map scrolling is finishing...")
@@ -238,7 +251,9 @@ func Engine(player *Player) {
 				// 	player.room.mutex.Unlock()
 				// }
 			}
+			player.room.mutexEngine.Lock()
 			CircleDraw(player)
+			player.room.mutexEngine.Unlock()
 			select {
 			case command := <-player.commands:
 				if command == nil {
@@ -246,13 +261,13 @@ func Engine(player *Player) {
 					continue
 				}
 				if player.commandCounter == 10 {
-					fmt.Println("For Player id", player.IdP)
+					// fmt.Println("For Player id", player.IdP)
 
-					players := player.room.AllPlayersToAnotherCanvas(player)
 					player.room.mutexEngine.Lock()
-					for _, plr := range players {
-						fmt.Printf("id: %d, x: %f, y: %f, dy: %f\n", plr.IdP, plr.X, plr.Y, plr.Dy)
-					}
+					players := player.room.AllPlayersToAnotherCanvas(player)
+					// for _, plr := range players {
+					// 	fmt.Printf("id: %d, x: %f, y: %f, dy: %f\n", plr.IdP, plr.X, plr.Y, plr.Dy)
+					// }
 					buf, err := json.Marshal(players)
 					if err != nil {
 						log.Println("Error players to encoding")
@@ -280,14 +295,14 @@ func Engine(player *Player) {
 					player.X += player.Dx * command.Delay
 					player.room.mutexEngine.Unlock()
 				}
+				player.room.mutexEngine.Lock()
 				ProcessSpeed(command.Delay, player)
 				Collision(command.Delay, player)
-				player.room.mutexEngine.Lock()
 				player.Y += (player.Dy * command.Delay)
 				player.canvas.y += player.canvas.dy * command.Delay
 				player.room.mutexEngine.Unlock()
 			}
-			if player.Dy > 1 {
+			if player.Dy > 1.5 {
 				fmt.Println("Blocks:")
 				for _, block := range player.room.Blocks {
 					fmt.Printf("Block x: %f, y: %f\n", block.X, block.Y)
@@ -302,6 +317,14 @@ func Engine(player *Player) {
 			}
 			// for logss
 			// log.Printf("*Player* id%d	-	x: %f, y: %f, yC: %f, Dy: %f\n", player.IdP, player.X, player.Y, player.Y-player.canvas.y, player.Dy)
+			// fmt.Println("Players:")
+			// player.room.Players.Range(func(_, plr interface{}) bool {
+			// 	if plr.(*Player).IdP == 0 {
+			// 		fmt.Printf("id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", plr.(*Player).IdP, plr.(*Player).X, plr.(*Player).Y, plr.(*Player).Dx, plr.(*Player).Dy)
+			// 		fmt.Printf("Canvas for id%d y: %f, dy: %f\n", plr.(*Player).IdP, plr.(*Player).canvas.y, plr.(*Player).canvas.dy)
+			// 	}
+			// 	return true
+			// })
 		}
 	}
 }

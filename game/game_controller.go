@@ -21,13 +21,18 @@ func NewGame(maxRooms uint) *Game {
 }
 
 func (g *Game) Run() {
+	defer func() {
+		if e := recover(); e != nil {
+			log.Println("Error at game.Run was occured (function Run)", e)
+		}
+	}()
 	log.Println("Main loop started")
 LOOP:
 	for {
 		player := <-g.register
 
 		for _, room := range g.rooms {
-			if length(&room.Players) < room.MaxPlayers {
+			if length(&room.Players) < room.MaxPlayers && !room.isStarted { // A room must not be started
 				g.mutex.Lock()
 				room.AddPlayer(player)
 				g.mutex.Unlock()

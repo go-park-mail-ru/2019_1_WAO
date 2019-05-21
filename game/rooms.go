@@ -22,6 +22,7 @@ type Room struct {
 	mutexRoom            *sync.Mutex
 	mutexEngine          *sync.Mutex
 	scrollCount          int
+	isStarted            bool
 	// scroller             *Player
 }
 
@@ -37,6 +38,7 @@ func NewRoom(maxPlayers int, game *Game) *Room {
 		mutexRoom:            &sync.Mutex{},
 		mutexEngine:          &sync.Mutex{},
 		scrollCount:          0,
+		isStarted:            false,
 		// scroller:             nil,
 	}
 }
@@ -50,6 +52,11 @@ func length(m *sync.Map) int {
 }
 
 func (room *Room) Run() {
+	defer func() {
+		if e := recover(); e != nil {
+			log.Println("Error at room.Run was occured (at room logic)", e)
+		}
+	}()
 	log.Println("Room loop started")
 	initFinish := make(chan struct{}, 1)
 	for {
@@ -70,7 +77,7 @@ func (room *Room) Run() {
 			player.IdP = length(&room.Players)
 			room.Players.Store(player.IdP, player)
 			log.Printf("Player %d added to game\n", player.IdP)
-			log.Printf("len(room.Players): %d, room.MaxPlayers: %d\n", length(&room.Players), room.MaxPlayers)
+			log.Printf("Count of players: %d, MaxPlayersCount: %d\n", length(&room.Players), room.MaxPlayers)
 			if length(&room.Players) == room.MaxPlayers {
 				room.init <- struct{}{}
 			}
@@ -82,6 +89,7 @@ func (room *Room) Run() {
 					Players []*Player `json:"players"`
 				}
 				room.mutexRoom.Lock()
+				room.isStarted = true
 				log.Println("room init")
 				room.Blocks = FieldGenerator(HeightField-20, 2000, 2000*0.01)
 				var players []*Player

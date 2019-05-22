@@ -3,7 +3,6 @@ package db
 import (
 	"database/sql"
 	"log"
-	"fmt"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/model"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/methods"
 )
@@ -32,9 +31,6 @@ func (s *DBService) GetUsers() (users []model.User, err error) {
 		if err != nil {
 			log.Println(err)
 			continue
-		}
-		if user.Image != "" {
-			user.Image = fmt.Sprintf(`/data/%d/%s`, user.ID, user.Image)
 		}
 		users = append(users, user)
 	}

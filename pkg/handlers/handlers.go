@@ -42,6 +42,12 @@ func (h *Handler)GetAll(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	for i, _ := range users {
+		if users[i].Image != "" {
+			//HARDCODE
+			users[i].Image = "https://s3.us-east-2.amazonaws.com/waojump/media/" + users[i].Image
+		}
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(model.SendUsers{
 		Users: users,
@@ -120,7 +126,6 @@ func (h *Handler) GetUsersByNick(w http.ResponseWriter, r *http.Request) {
 		user.Image = `https://s3.us-east-2.amazonaws.com/waojump/media/` + user.Image
 	}
 	json.NewEncoder(w).Encode(user)
-	// http.Error(w, `{"error": "This user is not found"}`, http.StatusNotFound)
 }
 
 func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {

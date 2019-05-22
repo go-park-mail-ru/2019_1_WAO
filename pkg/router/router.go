@@ -62,7 +62,6 @@ func CORSMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println("CORSMiddleware", r.URL.Path)
 		//HARD URL
-		log.Println(r.Header.Get("Origin"), "===", frontAddres)
 		if origin := r.Header.Get("Origin"); origin == frontAddres {
 			w.Header().Set("Access-Control-Allow-Origin", frontAddres)
 			w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")

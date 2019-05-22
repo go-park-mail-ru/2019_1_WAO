@@ -149,6 +149,8 @@ func Engine(player *Player) {
 	defer func() {
 		if e := recover(); e != nil {
 			log.Println("Error at physic treatment was occured (function Engine)", e)
+			KillPlayer(player)
+			RemovePlayer(player)
 		}
 	}()
 	for {

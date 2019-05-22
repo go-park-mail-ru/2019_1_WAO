@@ -19,7 +19,7 @@ type DBService struct {
 }
 
 func (s *DBService) GetUsers() (users []model.User, err error) {
-	rows, err := s.DB.Query("SELECT id, email, nickname, scope, games, wins, image FROM users ORDER by scope DESC;")
+	rows, err := s.DB.Query("SELECT id, email, nickname, score, games, wins, image FROM users ORDER by score DESC;")
 	if err != nil {
 		log.Println("Method GetUsers:", err)
 		return nil, err
@@ -43,7 +43,7 @@ func (s *DBService) GetUsers() (users []model.User, err error) {
 func (s *DBService) GetUser(userdata model.NicknameUser) (user *model.User, err error) {
 	log.Println("DB DEBUG input(user)", userdata)
 	tmp := model.User{}
-	row := s.DB.QueryRow(`SELECT id, email, nickname, scope, games, wins, image 
+	row := s.DB.QueryRow(`SELECT id, email, nickname, score, games, wins, image 
 						FROM users WHERE nickname = $1;`, userdata.Nickname)
 
 	switch err := row.Scan(&tmp.ID, &tmp.Email, &tmp.Nick, &tmp.Score,
@@ -61,7 +61,7 @@ func (s *DBService) GetUser(userdata model.NicknameUser) (user *model.User, err 
 }
 
 func (s *DBService) CreateUser(user model.UserRegister) (nickname string, err error) {
-	err = s.DB.QueryRow(`INSERT INTO users (email, nickname, password, scope, games, wins, image)
+	err = s.DB.QueryRow(`INSERT INTO users (email, nickname, password, score, games, wins, image)
 	VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING nickname`,
 	user.Email, user.Nickname, user.Password, 0, 0, 0, "default_image.png").Scan(&nickname)
 	if err != nil {

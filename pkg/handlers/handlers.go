@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"encoding/json"
 	"github.com/gorilla/mux"
-	// "golang.org/x/crypto/bcrypt"
+	"golang.org/x/crypto/bcrypt"
 	"time"
 	"context"
 	"io/ioutil"
@@ -74,13 +74,13 @@ func (h *Handler) AddUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Println("InputPASS: ", user.Password)
-	// hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	// if err != nil {
-	// 	log.Printf("Generate hash password error: %v", err)
-	// 	w.WriteHeader(http.StatusInternalServerError)
-	// 	return
-	// }
-	// user.Password = string(hashedPassword)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("Generate hash password error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	user.Password = string(hashedPassword)
 
 	log.Println("DEBUG: ", user)
 
@@ -144,15 +144,15 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 	newData.Email = r.FormValue("email")
 	newData.Password = r.FormValue("password")
 	newData.Nickname = r.FormValue("nickname")
-	// if len(newData.Password) > 5 {
-	// 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newData.Password), bcrypt.DefaultCost)
-	// 	if err != nil {
-	// 		log.Printf("Generate hash password error: %v", err)
-	// 		w.WriteHeader(http.StatusInternalServerError)
-	// 		return
-	// 	}
-	// 	newData.Password = string(hashedPassword)
-	// }
+	if len(newData.Password) > 5 {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newData.Password), bcrypt.DefaultCost)
+		if err != nil {
+			log.Printf("Generate hash password error: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		newData.Password = string(hashedPassword)
+	}
 
 	var url string
 	if _, _, err := r.FormFile("image"); err != nil {
@@ -237,21 +237,21 @@ func (h *Handler) Signin(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(body, &data); err != nil {
 		log.Println(err)
 	}
-	log.Println("Structure: ", data)
-		
-	// hashedPassword, err := bcrypt.GenerateFromPassword([]byte(data.Password), bcrypt.DefaultCost)
-	// if err != nil {
-	// 	log.Printf("Generate hash password error: %v", err)
-	// 	w.WriteHeader(http.StatusInternalServerError)
-	// 	return
-	// }
-	// data.Password = string(hashedPassword)
-	log.Println("DEBUG Structure AFTER: ", data)
-
+	
 	user, err := h.hand.CheckUser(data)
 	if err != nil {
 		log.Printf("Check User Error: %T\n %s\n", err, err.Error())
+		w.WriteHeader(http.StatusBadRequest)
 	}
+	log.Println("DEBUG Structure AFTER: ", data)
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(data.Password))
+	if err != nil {
+		log.Printf("Compare hash password error: %v", err)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	token, err := h.auth.Create(
 		context.Background(),
 		&auth.UserData{

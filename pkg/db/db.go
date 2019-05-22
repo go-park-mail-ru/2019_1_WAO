@@ -101,7 +101,7 @@ func (s *DBService) UpdateUser(user model.UpdateDataImport) (out model.UpdateDat
 func (s *DBService) CheckUser(user model.SigninUser) (out *model.UserRegister, err error) {
 	log.Println("DB DEBUG input(user)", user)
 	tmp := model.UserRegister{}
-	row := s.DB.QueryRow(`SELECT email, nickname, password FROM users WHERE nickname = $1 AND password = $2`, user.Nickname, user.Password)
+	row := s.DB.QueryRow(`SELECT email, nickname, password FROM users WHERE nickname = $1`, user.Nickname)
 	switch err := row.Scan(&tmp.Email, &tmp.Nickname, &tmp.Password); err {
 	case sql.ErrNoRows:
 		log.Println("No rows were returned!")

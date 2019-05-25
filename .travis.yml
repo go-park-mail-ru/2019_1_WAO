@@ -11,4 +11,4 @@ branches:
   - master
 before_install:
 - openssl aes-256-cbc -K $encrypted_fae475b27048_key -iv $encrypted_fae475b27048_iv
-  -in Certificate_rsa.cer.enc -out ../../Certificate_rsa.cer -d
+  -in Certificate_rsa.cer.enc -out ./Certificate_rsa.cer -d

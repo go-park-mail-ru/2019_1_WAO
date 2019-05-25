@@ -42,12 +42,6 @@ func (h *Handler)GetAll(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	for i, _ := range users {
-		if users[i].Image != "" {
-			//HARDCODE
-			users[i].Image = "https://s3.us-east-2.amazonaws.com/waojump/media/" + users[i].Image
-		}
-	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(model.SendUsers{
 		Users: users,
@@ -274,7 +268,7 @@ func (h *Handler) Signin(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, cookie)
 }
 
-func getSession(r *http.Request, authClient auth.AuthCheckerClient) (*auth.UserData, error) {
+func GetSession(r *http.Request, authClient auth.AuthCheckerClient) (*auth.UserData, error) {
 	cookieSessionID, err := r.Cookie("session_id")
 	if err != nil {
 		return nil, err
@@ -304,13 +298,10 @@ func (h *Handler) CheckSession(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	session, err := getSession(r, h.auth)
+	session, err := GetSession(r, h.auth)
 	if err != nil {
 		log.Println("Error checking of session")
-	}
-	if session == nil {
 		w.WriteHeader(http.StatusBadRequest)
-		return
 	}
 
 	nickname := model.NicknameUser{

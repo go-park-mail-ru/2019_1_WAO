@@ -17,8 +17,8 @@ type DBService struct {
 	DB *sql.DB
 }
 
-func (s *DBService) GetUsers() (users []model.User, err error) {
-	rows, err := s.DB.Query("SELECT id, email, nickname, score, games, wins, image FROM users ORDER by score DESC;")
+func (s *DBService) GetUsers() (users []model.Player, err error) {
+	rows, err := s.DB.Query("SELECT id, nickname, score, games, wins FROM users ORDER by score DESC LIMIT 15;")
 	if err != nil {
 		log.Println("Method GetUsers:", err)
 		return nil, err
@@ -26,8 +26,8 @@ func (s *DBService) GetUsers() (users []model.User, err error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		user := model.User{}
-		err := rows.Scan(&user.ID, &user.Email, &user.Nick, &user.Score, &user.Games, &user.Wins, &user.Image)
+		user := model.Player{}
+		err := rows.Scan(&user.ID, &user.Nick, &user.Score, &user.Games, &user.Wins)
 		if err != nil {
 			log.Println(err)
 			continue

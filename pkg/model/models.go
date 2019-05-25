@@ -7,7 +7,7 @@ type UserRegister struct {
 }
 
 type SendUsers struct {
-	Users []User `json:"users, string, omitempty"`
+	Users []Player `json:"users, string, omitempty"`
 }
 
 type User struct {
@@ -19,6 +19,14 @@ type User struct {
 	Games    int    `json:"games, string, omitempty"`
 	Wins     int    `json:"wins, string, omitempty"`
 	Image    string `json:"image, omitempty"`
+}
+
+type Player struct {
+	ID       int    `json:"id, string, omitempty"`
+	Nick     string `json:"nickname, omitempty"`
+	Score    int    `json:"score, string, omitempty"`
+	Games    int    `json:"games, string, omitempty"`
+	Wins     int    `json:"wins, string, omitempty"`
 }
 
 type SigninUser struct {

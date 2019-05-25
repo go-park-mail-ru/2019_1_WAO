@@ -4,9 +4,9 @@ go:
 script:
 - echo "Test string"
 - ls -a
-- chmod 600 ./Certificate_rsa.pem
+- chmod 600 ./Certificate_rsa.cer
 - ssh-keyscan -H 89.208.197.150 >> ~/.ssh/known_hosts
-- scp -i ./Certificate_rsa.pem -r dist ubuntu@89.208.197.150:/home/ubuntu/backend
+- scp -i ./Certificate_rsa.cer -r dist ubuntu@89.208.197.150:/home/ubuntu/backend
 branches:
   only:
   - master

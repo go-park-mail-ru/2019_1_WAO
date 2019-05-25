@@ -12,12 +12,14 @@ import (
 var (
 	Auth auth.AuthCheckerClient
 	userHandler *handlers.Handler
+	frontURL string
 )
 
 //CreateRouter make router consist of 2 part Gorilla Mux and standart router
-func CreateRouter(prefix string, serviceSession auth.AuthCheckerClient, db *driver.DB, setting *aws.ConnectSetting) http.Handler {
-	userHandler = handlers.NewUserHandler(db, serviceSession, setting)
+func CreateRouter(prefix, urlCORS, urlImage string, serviceSession auth.AuthCheckerClient, db *driver.DB, setting *aws.ConnectSetting) http.Handler {
+	userHandler = handlers.NewUserHandler(db, serviceSession, setting, urlImage)
 	Auth = serviceSession
+	frontURL = urlCORS
 	actionMux := mux.NewRouter()
 	apiV1 := actionMux.PathPrefix(prefix).Subrouter()
 
@@ -25,7 +27,7 @@ func CreateRouter(prefix string, serviceSession auth.AuthCheckerClient, db *driv
 	apiV1.HandleFunc("/users", userHandler.AddUser).Methods("POST", "OPTIONS")	
 	apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(userHandler.GetUsersByNick))).Methods("GET", "OPTIONS")
 	apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(userHandler.ModifiedUser))).Methods("PUT", "OPTIONS")
-	apiV1.Handle("/session", authMiddleware(http.HandlerFunc(userHandler.Signout))).Methods("DELETE", "OPTIONS")
+	apiV1.Handle("/session", authMiddleware(http.HandlerFunc(userHandler.Signout))).Methods("DELETE")
 	apiV1.HandleFunc("/session", userHandler.CheckSession).Methods("GET", "OPTIONS")
 	apiV1.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)

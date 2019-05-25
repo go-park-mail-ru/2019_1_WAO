@@ -18,11 +18,12 @@ import (
 	"github.com/DmitriyPrischep/backend-WAO/pkg/methods"
 )
 
-func NewUserHandler(database *driver.DB, client auth.AuthCheckerClient, setting *aws.ConnectSetting) *Handler {
+func NewUserHandler(database *driver.DB, client auth.AuthCheckerClient, setting *aws.ConnectSetting, path string) *Handler {
 	return &Handler{
 		hand: db.NewDataBase(database.DB),
 		auth: client,
 		aws: setting,
+		imagePath: path,
 	}
 }
 
@@ -30,6 +31,7 @@ type Handler struct {
 	hand methods.UserMethods
 	auth auth.AuthCheckerClient
 	aws *aws.ConnectSetting
+	imagePath string
 }
 
 func (h *Handler)GetAll(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +119,7 @@ func (h *Handler) GetUsersByNick(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if user.Image != "" {
-		user.Image = `https://s3.us-east-2.amazonaws.com/waojump/media/` + user.Image
+		user.Image = h.imagePath + user.Image
 	}
 	json.NewEncoder(w).Encode(user)
 }
@@ -185,10 +187,6 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Signout(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodOptions {
-		return
-	}
-
 	val, err := r.Cookie("session_id")
 	if err != nil {
 		log.Println("Error: cookie not found", val)

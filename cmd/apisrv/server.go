@@ -23,8 +23,7 @@ var (
 )
 
 const (
-	expiration        = 10 * time.Minute
-	pathToStaticFiles = "./static"
+	expiration = 10 * time.Minute
 )
 
 func main() {
@@ -72,7 +71,11 @@ func main() {
 		PathRootDir:     viper.GetString("aws.root"),
 	}
 
-	router := router.CreateRouter("/api", sessionManager, connection, setting)
+	api := viper.GetString("apisrv.api")
+	urlCORS := viper.GetString("apisrv.urlCORS")
+	urlImage := viper.GetString("apisrv.urlImage")
+
+	router := router.CreateRouter(api, urlCORS, urlImage, sessionManager, connection, setting)
 
 	srv := &http.Server{
 		Handler:      router,

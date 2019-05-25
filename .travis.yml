@@ -2,14 +2,13 @@ language: go
 go:
 - 1.12
 script:
-- echo "Test string"
 - ls -a
-- chmod 600 ./Certificate_rsa.cer
+- chmod 600 ./certificate_id_rsa.cer
 - ssh-keyscan -H 89.208.197.150 >> ~/.ssh/known_hosts
-- scp -i ./Certificate_rsa.cer -r dist ubuntu@89.208.197.150:/home/ubuntu/backend
+- scp -i ./certificate_id_rsa.cer -r dist ubuntu@89.208.197.150:/home/ubuntu/backend
 branches:
   only:
   - master
 before_install:
 - openssl aes-256-cbc -K $encrypted_fae475b27048_key -iv $encrypted_fae475b27048_iv
-  -in Certificate_rsa.cer.enc -out ../../Certificate_rsa.cer -d
+  -in certificate_id_rsa.cer.enc -out certificate_id_rsa.cer -d

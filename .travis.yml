@@ -3,7 +3,7 @@ go:
 - 1.12
 script:
 - echo "Test string"
-- chmod 600 ./2019_1_WAO_id_rsa.pem
+- chmod 600 ./Certificate_rsa.pem
 - ssh-keyscan -H 89.208.197.150 >> ~/.ssh/known_hosts
 - scp -i ./Certificate_rsa.pem -r dist ubuntu@89.208.197.150:/home/ubuntu/backend
 branches:

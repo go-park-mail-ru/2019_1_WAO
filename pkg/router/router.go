@@ -22,11 +22,10 @@ func CreateRouter(prefix, pathToStaticFiles string, serviceSession auth.AuthChec
 	apiV1 := actionMux.PathPrefix(prefix).Subrouter()
 
 	apiV1.HandleFunc("/users", userHandler.GetAll).Methods("GET", "OPTIONS")
-	apiV1.HandleFunc("/users", userHandler.AddUser).Methods("POST", "OPTIONS")
-	apiV1.HandleFunc("/users/{login}", userHandler.GetUsersByNick).Methods("GET", "OPTIONS")
-	// apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(userHandler.GetUsersByNick))).Methods("GET", "OPTIONS")
-	apiV1.HandleFunc("/users/{login}", userHandler.ModifiedUser).Methods("PUT", "OPTIONS")
-	apiV1.HandleFunc("/session", userHandler.Signout).Methods("DELETE", "OPTIONS")
+	apiV1.HandleFunc("/users", userHandler.AddUser).Methods("POST", "OPTIONS")	
+	apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(userHandler.GetUsersByNick))).Methods("GET", "OPTIONS")
+	apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(userHandler.ModifiedUser))).Methods("PUT", "OPTIONS")
+	apiV1.Handle("/session", authMiddleware(http.HandlerFunc(userHandler.Signout))).Methods("DELETE", "OPTIONS")
 	apiV1.HandleFunc("/session", userHandler.CheckSession).Methods("GET", "OPTIONS")
 	apiV1.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
@@ -39,16 +38,6 @@ func CreateRouter(prefix, pathToStaticFiles string, serviceSession auth.AuthChec
 
 	siteMux.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("WAO team"))
-		// session, err := getSession(r)
-		// if err != nil {
-		// 	log.Println("Error checking of session")
-		// }
-	
-		// if session != nil {
-		// 	w.Header().Set("Content-Type", "text/html")
-		// 	fmt.Fprintln(w, "\nWelcome "+session.Login)
-		// }
-		
 	})
 
 	siteMux.HandleFunc("/update", func(w http.ResponseWriter, r *http.Request) {

@@ -72,7 +72,7 @@ func main() {
 		PathRootDir:     viper.GetString("aws.root"),
 	}
 
-	router := router.CreateRouter("/api", "./static", sessionManager, connection, setting)
+	router := router.CreateRouter("/api", sessionManager, connection, setting)
 
 	srv := &http.Server{
 		Handler:      router,

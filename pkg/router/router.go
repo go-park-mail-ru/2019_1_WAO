@@ -15,7 +15,7 @@ var (
 )
 
 //CreateRouter make router consist of 2 part Gorilla Mux and standart router
-func CreateRouter(prefix, pathToStaticFiles string, serviceSession auth.AuthCheckerClient, db *driver.DB, setting *aws.ConnectSetting) http.Handler {
+func CreateRouter(prefix string, serviceSession auth.AuthCheckerClient, db *driver.DB, setting *aws.ConnectSetting) http.Handler {
 	userHandler = handlers.NewUserHandler(db, serviceSession, setting)
 	Auth = serviceSession
 	actionMux := mux.NewRouter()
@@ -58,15 +58,8 @@ func CreateRouter(prefix, pathToStaticFiles string, serviceSession auth.AuthChec
 		return
 	})
 
-	staticHandler := http.StripPrefix(
-		"/data/",
-		http.FileServer(http.Dir(pathToStaticFiles)),
-	)
-	siteMux.Handle("/data/", staticHandler)
-
 	siteHandler := CORSMiddleware(siteMux)
 	siteHandler = logMiddleware(siteHandler)
 	siteHandler = panicMiddleware(siteHandler)
-
 	return siteHandler
 }

@@ -2,8 +2,8 @@ language: go
 go:
 - 1.12
 script:
-- ls -a
 - go build .\cmd\apisrv\
+- ls -la
 - chmod 600 ./certificate_id_rsa.cer
 - ssh-keyscan -H 89.208.197.150 >> ~/.ssh/known_hosts
 - scp -i ./certificate_id_rsa.cer -r ./apisrv ubuntu@89.208.197.150:/home/ubuntu/backend

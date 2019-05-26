@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
-
-	_ "github.com/lib/pq"
 
 	"github.com/DmitriyPrischep/backend-WAO/pkg/auth"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/aws"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/driver"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/router"
+	_ "github.com/lib/pq"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 )
@@ -27,8 +27,7 @@ const (
 )
 
 func main() {
-	viper.AddConfigPath("../../")
-	viper.SetConfigName("config")
+	viper.SetConfigFile(os.Args[1])
 	if err := viper.ReadInConfig(); err != nil {
 		log.Println("Cannot read config", err)
 		return

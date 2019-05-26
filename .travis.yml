@@ -3,9 +3,10 @@ go:
 - 1.12
 script:
 - ls -a
+- go build .\cmd\apisrv\
 - chmod 600 ./certificate_id_rsa.cer
 - ssh-keyscan -H 89.208.197.150 >> ~/.ssh/known_hosts
-- scp -i ./certificate_id_rsa.cer -r dist ubuntu@89.208.197.150:/home/ubuntu/backend
+- scp -i ./certificate_id_rsa.cer -r ???? ubuntu@89.208.197.150:/home/ubuntu/backend
 branches:
   only:
   - master

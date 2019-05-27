@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/auth"
 	"log"
+	"os"
 	"net"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"

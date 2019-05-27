@@ -1,10 +1,11 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
-	"log"
 	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
 
 	"github.com/DmitriyPrischep/backend-WAO/pkg/game"
 	"github.com/gorilla/mux"
@@ -26,7 +27,6 @@ var (
 	sessionManager auth.AuthCheckerClient
 	GameController *game.Game
 )
-
 
 func SocketFunc(w http.ResponseWriter, r *http.Request) {
 
@@ -56,10 +56,8 @@ func SocketFunc(w http.ResponseWriter, r *http.Request) {
 	GameController.AddPlayer(player)
 }
 
-
 func main() {
-	viper.AddConfigPath("../../")
-	viper.SetConfigName("config")
+	viper.SetConfigFile(os.Args[1])
 	if err := viper.ReadInConfig(); err != nil {
 		log.Println("Cannot read config", err)
 		return
@@ -88,5 +86,5 @@ func main() {
 	fmt.Println("Server is listening")
 	GameController = game.NewGame(1) // New GameController
 	go GameController.Run()
-	http.ListenAndServe(":" + port, nil)
+	http.ListenAndServe(":"+port, nil)
 }

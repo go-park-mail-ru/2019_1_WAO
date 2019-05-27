@@ -14,8 +14,7 @@ var (
 )
 
 func main() {
-	viper.AddConfigPath("../../")
-	viper.SetConfigName("config")
+	viper.SetConfigFile(os.Args[1])
 	if err := viper.ReadInConfig(); err != nil {
 		log.Println("Cannot read config", err)
 		return

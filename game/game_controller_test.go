@@ -1,6 +1,20 @@
 package game
 
-import "testing"
+import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/gorilla/websocket"
+)
+
+func TestNewGame(t *testing.T) {
+	game := NewGame(2)
+	if game == nil {
+		t.Fatalf("Unexpected nil game\n")
+	}
+}
 
 func TestRemoveRoom(t *testing.T) {
 	game := &Game{
@@ -35,3 +49,64 @@ func TestAddRoom(t *testing.T) {
 		game.RemoveRoom(room)
 	}
 }
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
+func runServer(GameController *Game) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		ws, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			fmt.Println("Socket connection error", err)
+			return
+		}
+
+		// !!!
+		player := NewPlayer(ws)
+		GameController.AddPlayer(player)
+	}))
+}
+
+func gameActivate(s *httptest.Server, GameController *Game, done <-chan struct{}) {
+	// Convert http://127.0.0.1 to ws://127.0.0.1
+	// u := "ws" + strings.TrimPrefix(s.URL, "http")
+	go GameController.Run()
+	<-done
+	s.Close()
+}
+
+// func TestGameRun(t *testing.T) {
+// 	game := NewGame(2)
+// 	done := make(chan struct{})
+// 	s := runServer(game)
+// 	go gameActivate(s, game, done)
+// 	// players := make([]*Player, 3)
+// 	// u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/ws"}
+// 	// u.RequestURI()
+// 	for i := 0; i < 2; i++ {
+// 		ws, _, err := websocket.DefaultDialer.Dial("ws://"+s.Listener.Addr().String()+"/ws", nil)
+// 		if err != nil {
+// 			t.Fatalf("%v", err)
+// 		}
+// 		defer ws.Close()
+// 	}
+// 	if len(game.rooms) != 1 {
+// 		t.Fatalf("Expected: 1 rooms, but got: %d", len(game.rooms))
+// 	}
+// 	ws, _, err := websocket.DefaultDialer.Dial("ws://"+s.Listener.Addr().String()+"/ws", nil)
+// 	if err != nil {
+// 		t.Fatalf("%v", err)
+// 	}
+// 	defer ws.Close()
+// 	// players[2] = NewPlayer(ws)
+// 	if len(game.rooms) != 2 {
+// 		t.Fatalf("Expected: 2 rooms, but got: %d", len(game.rooms))
+// 	}
+// 	done <- struct{}{}
+// }

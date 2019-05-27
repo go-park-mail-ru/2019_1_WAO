@@ -7,28 +7,32 @@ import (
 	"math"
 	"math/rand"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
-var WidthField float64 = 400
-var HeightField float64 = 700
+var WidthField float64 = viper.GetFloat64("canvas.widthField")
+var HeightField float64 = viper.GetFloat64("canvas.heightField")
 
 var maxScrollHeight float64 = 0.25 * HeightField
 var minScrollHeight float64 = 0.75 * HeightField
 
 var randomGame *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano())) // Randomizer initialize
-// var koefHeightOfMaxGenerateSlice float64 = 2000
-var gravity float64 = 0.0004
+var gravity float64 = viper.GetFloat64("settings.gravity")
+var spacing float64 = viper.GetFloat64("settings.spacing")
 
-var koefScrollSpeed float64 = 0.5 // Скорость с которой все объекты будут падать вниз
+var koefScrollSpeed float64 = viper.GetFloat64("settings.koefScrollSpeed") // Скорость с которой все объекты будут падать вниз
 // this.state = true;
 // this.stateScrollMap = false;  // Нужен для отслеживания другими классами состояния скроллинга
 // this.stateGenerateNewMap = false; // Нужен для отслеживания другими классами момента когда надо добавить к своей карте вновь сгенерированный кусок this.state.newPlates
 // Настройки генерации карты
-var koefGeneratePlates float64 = 0.01
-var koefHeightOfMaxGenerateSlice int = 2000
+var koefGeneratePlates float64 = viper.GetFloat64("settings.koefGeneratePlates")
+var koefHeightOfMaxGenerateSlice int = viper.GetInt("settings.koefHeightOfMaxGenerateSlice")
 
-var leftIndent float64 = 91
-var rightIndent float64 = 91
+var leftIndent float64 = viper.GetFloat64("settings.leftIndent")
+var rightIndent float64 = viper.GetFloat64("settings.rightIndent")
+
+var maxCountOfCommands uint64 = viper.GetUint64("player.maxCountOfCommands")
 
 // this.idPhysicBlockCounter = 0;  // Уникальный идентификатор нужен для отрисовки новых объектов
 
@@ -44,8 +48,8 @@ func FieldGenerator(beginY float64, b float64, k uint16) (newBlocks []*Block) {
 			X:  currentX,
 			Y:  currentY,
 			Dy: 0,
-			w:  90,
-			h:  15,
+			w:  viper.GetFloat64("block.width"),
+			h:  viper.GetFloat64("block.height"),
 		})
 		currentY -= p
 	}
@@ -54,13 +58,13 @@ func FieldGenerator(beginY float64, b float64, k uint16) (newBlocks []*Block) {
 
 // Функция изменения скорости
 
-func ProcessSpeed(delay float64, player *Player) {
+func ProcessSpeed(delay float64, player *Player, gravity float64) {
 	player.Dy += (gravity * delay)
 }
 
 // Отрисовка по кругу
 
-func CircleDraw(player *Player) {
+func CircleDraw(player *Player, WidthField float64) {
 	if player.X > WidthField {
 		player.X = 0
 	} else if player.X < 0 {
@@ -82,8 +86,44 @@ func KillPlayer(player *Player) {
 		return true
 	})
 }
-func Collision(delay float64, player *Player) {
-	var plate *Block = player.SelectNearestBlock(&player.room.Blocks)
+
+// func Collision(delay float64, player *Player) {
+// 	var playerFalls = func(player *Player) bool {
+// 		return player.Dy >= 0
+// 	}
+// 	// var playerFallsWithoutScrollingSpeed = func(player *Player) bool {
+// 	// 	return (player.Dy - koefScrollSpeed) >= 0
+// 	// }
+// 	var mapDoesntScroll = func(player *Player) bool {
+// 		return player.stateScrollMap == false
+// 	}
+// 	var playerNextPositionUnderPlate = func(player *Player, plate *Block) bool {
+// 		return (player.Y + player.Dy*delay) < (plate.Y - 15)
+// 	}
+// 	// var playerNextPositionUnderPlateWithoutScroll = func(player *Player, plate *Block) bool {
+// 	// 	return (player.Y + (player.Dy-koefScrollSpeed)*delay) < (plate.Y - 15)
+// 	// }
+// 	var plate *Block = player.SelectNearestBlock(&player.room.Blocks)
+// 	if plate == nil {
+// 		log.Printf("* Plate is nil * for player id%d", player.IdP)
+// 		return
+// 	}
+// 	// if playerFalls(player) && mapDoesntScroll(player) || playerFallsWithoutScrollingSpeed(player) && !mapDoesntScroll(player) {
+// 	// 	if ((playerFalls(player) && mapDoesntScroll(player)) && playerNextPositionUnderPlate(player, plate)) || ((playerFallsWithoutScrollingSpeed(player) && !mapDoesntScroll(player)) && playerNextPositionUnderPlateWithoutScroll(player)) {
+// 	// 		return
+// 	// 	}
+// 	// }
+// 	if playerFalls(player) && mapDoesntScroll(player) {
+// 		if (playerFalls(player) && mapDoesntScroll(player)) && playerNextPositionUnderPlate(player, plate) {
+// 			return
+// 		}
+// 	}
+// 	player.Y = plate.Y - plate.h
+// 	// fmt.Println("******** COLLISION WAS OCCURED ********")
+// 	player.Jump()
+// }
+
+func Collision(delay float64, player *Player, plate *Block) {
 	if plate == nil {
 		log.Printf("* Plate is nil * for player id%d", player.IdP)
 		return
@@ -158,7 +198,8 @@ func Engine(player *Player) {
 		case <-player.engineDone:
 			return
 		default:
-			if player.Y-player.H > player.canvas.y+700 {
+			if player.Y-player.H > player.canvas.y+HeightField {
+				log.Printf("Player with id %d lose!\n", player.IdP)
 				KillPlayer(player)
 				RemovePlayer(player)
 				return
@@ -185,7 +226,7 @@ func Engine(player *Player) {
 					player.room.mutexEngine.Lock()
 					lastBlock := player.room.Blocks[len(player.room.Blocks)-1]
 					player.room.mutexEngine.Unlock()
-					beginY := lastBlock.Y - 20
+					beginY := lastBlock.Y - spacing
 					b := float64(koefHeightOfMaxGenerateSlice) + (lastBlock.Y - player.canvas.y)
 					k := uint16(koefGeneratePlates * (float64(koefHeightOfMaxGenerateSlice) + (lastBlock.Y - player.canvas.y)))
 					newBlocks := FieldGenerator(beginY, b, k)
@@ -254,7 +295,7 @@ func Engine(player *Player) {
 				// }
 			}
 			player.room.mutexEngine.Lock()
-			CircleDraw(player)
+			CircleDraw(player, WidthField)
 			player.room.mutexEngine.Unlock()
 			select {
 			case command := <-player.commands:
@@ -262,7 +303,7 @@ func Engine(player *Player) {
 					fmt.Println("Command's error was occured")
 					continue
 				}
-				if player.commandCounter == 10 {
+				if player.commandCounter == maxCountOfCommands {
 					// fmt.Println("For Player id", player.IdP)
 
 					player.room.mutexEngine.Lock()
@@ -298,25 +339,25 @@ func Engine(player *Player) {
 					player.room.mutexEngine.Unlock()
 				}
 				player.room.mutexEngine.Lock()
-				ProcessSpeed(command.Delay, player)
-				Collision(command.Delay, player)
+				ProcessSpeed(command.Delay, player, gravity)
+				Collision(command.Delay, player, player.SelectNearestBlock(&player.room.Blocks))
 				player.Y += (player.Dy * command.Delay)
 				player.canvas.y += player.canvas.dy * command.Delay
 				player.room.mutexEngine.Unlock()
 			}
-			if player.Dy > 1.5 {
-				fmt.Println("Blocks:")
-				for _, block := range player.room.Blocks {
-					fmt.Printf("Block x: %f, y: %f\n", block.X, block.Y)
-				}
-				fmt.Println("Players:")
-				player.room.Players.Range(func(_, plr interface{}) bool {
-					fmt.Printf("id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", plr.(*Player).IdP, plr.(*Player).X, plr.(*Player).Y, plr.(*Player).Dx, plr.(*Player).Dy)
-					fmt.Printf("Canvas for id%d y: %f, dy: %f\n", plr.(*Player).IdP, plr.(*Player).canvas.y, plr.(*Player).canvas.dy)
-					return true
-				})
-				// panic("Dy >>>>>")
-			}
+			// if player.Dy > viper.GetFloat64("player.speedLimit") {
+			// 	fmt.Println("Blocks:")
+			// 	for _, block := range player.room.Blocks {
+			// 		fmt.Printf("Block x: %f, y: %f\n", block.X, block.Y)
+			// 	}
+			// 	fmt.Println("Players:")
+			// 	player.room.Players.Range(func(_, plr interface{}) bool {
+			// 		fmt.Printf("id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", plr.(*Player).IdP, plr.(*Player).X, plr.(*Player).Y, plr.(*Player).Dx, plr.(*Player).Dy)
+			// 		fmt.Printf("Canvas for id%d y: %f, dy: %f\n", plr.(*Player).IdP, plr.(*Player).canvas.y, plr.(*Player).canvas.dy)
+			// 		return true
+			// 	})
+			// 	// panic("Dy >>>>>")
+			// }
 			// for logss
 			// log.Printf("*Player* id%d	-	x: %f, y: %f, yC: %f, Dy: %f\n", player.IdP, player.X, player.Y, player.Y-player.canvas.y, player.Dy)
 			// fmt.Println("Players:")

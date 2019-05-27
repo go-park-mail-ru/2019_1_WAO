@@ -2,6 +2,8 @@ package game
 
 import (
 	"testing"
+
+	"github.com/spf13/viper"
 )
 
 func TestProcessSpeed(t *testing.T) {
@@ -16,7 +18,7 @@ func TestProcessSpeed(t *testing.T) {
 		delay:    1.0,
 		expected: 10.0004,
 	}
-	ProcessSpeed(test.delay, test.player)
+	ProcessSpeed(test.delay, test.player, 0.0004)
 	if test.player.Dy != test.expected {
 		t.Errorf("Expected dy: %f, but got: %f\n", test.expected, test.player.Dy)
 	}
@@ -56,39 +58,14 @@ func TestCircleDraw(t *testing.T) {
 			player: &Player{
 				X: -75,
 			},
-			expectedX: WidthField,
+			expectedX: 400,
 		},
 	}
 
-	for _, test := range tests {
-		CircleDraw(test.player)
+	for id, test := range tests {
+		CircleDraw(test.player, 400)
 		if test.player.X != test.expectedX {
-			t.Errorf("Expected x: %f, but got: %f", test.expectedX, test.player.X)
-		}
-	}
-}
-
-func TestJump(t *testing.T) {
-	players := []*Player{
-		&Player{
-			Dy: -0.99,
-		},
-		&Player{
-			Dy: 555.46,
-		},
-
-		&Player{
-			Dy: -0.35,
-		},
-		&Player{
-			Dy: 0,
-		},
-	}
-	expected := -0.35
-	for _, player := range players {
-		player.Jump()
-		if player.Dy != -0.35 {
-			t.Errorf("Expected: %f, but got: %f", expected, player.Dy)
+			t.Errorf("test_id: %d -> Expected x: %f, but got: %f", id, test.expectedX, test.player.X)
 		}
 	}
 }
@@ -154,35 +131,107 @@ func TestSetPlayerOnPlate(t *testing.T) {
 	}
 }
 
-func (player *Player) TestSelectNearestBlock(t *testing.T) {
-	// nearestBlock = nil
-	// minY := math.MaxFloat64
-	// // canvasY := player.canvas.y
-	// for _, block := range *blocks {
-
-	// 	// if (block.Y-block.h > canvasY+700) || (block.Y < canvasY) {
-	// 	// 	continue
-	// 	// }
-	// 	if player.X <= block.X+block.w && player.X+player.W >= block.X {
-	// 		if math.Abs(block.Y-player.Y) < minY && player.Y <= block.Y {
-	// 			minY = math.Abs(block.Y - player.Y)
-	// 			nearestBlock = block
-	// 		}
-	// 	}
-	// }
-	// return
+func TestSelectNearestBlock(t *testing.T) {
+	player := &Player{
+		X:  120,
+		Y:  350,
+		Dy: 1,
+	}
+	blocks := &[]*Block{
+		&Block{
+			X: 120,
+			Y: 200,
+			w: 90,
+			h: 15,
+		},
+		&Block{
+			X: 60,
+			Y: 380,
+			w: 90,
+			h: 15,
+		},
+		&Block{
+			X: 400,
+			Y: 200,
+			w: 90,
+			h: 15,
+		},
+	}
+	block := player.SelectNearestBlock(blocks)
+	if block != (*blocks)[1] {
+		t.Fatalf("Expected block x: %f, y: %f; but got block x: %f, y: %f\n", (*blocks)[1].X, (*blocks)[1].Y, block.X, block.Y)
+	}
 }
 
-// func TestFieldGenerator(t *testing.T) {
-// 	var player *Player
-// 	player = FieldGenerator(100, 100, 20)
-// 	players = append(players, player)
-// 	for _, value := range blocks {
-// 		fmt.Println(*value)
-// 	}
-// 	fmt.Println("Players:")
-// 	for _, plr := range players {
-// 		fmt.Println(*plr)
-// 	}
+func TestCollision(t *testing.T) {
 
-// }
+	tests := []struct {
+		player   *Player
+		block    *Block
+		delay    float64
+		expected bool
+	}{
+		{
+			player: &Player{
+				X:  10,
+				Y:  200,
+				Dy: -10,
+				W:  50,
+				H:  40,
+			},
+			block: &Block{
+				X: 20,
+				Y: 10,
+				w: 90,
+				h: 15,
+			},
+			delay:    1.0,
+			expected: false,
+		},
+		{
+			player: &Player{
+				X:  120,
+				Y:  350,
+				Dy: 1,
+				W:  50,
+				H:  40,
+			},
+			block: &Block{
+				X: 60,
+				Y: 351,
+				w: 90,
+				h: 15,
+			},
+			delay:    1.0,
+			expected: true,
+		},
+	}
+	for id, test := range tests {
+		Collision(test.delay, test.player, test.block)
+		if (test.player.Dy == -0.35) != test.expected {
+			t.Fatalf("test_id: %d\n", id)
+		}
+	}
+}
+
+func TestFieldGenerator(t *testing.T) {
+	viper.SetConfigFile("../config/test.yml")
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(err)
+	}
+	// beginY was sended as the parameter
+	beginY := 400.0
+	b := viper.GetFloat64("settings.koefHeightOfMaxGenerateSlice")
+	k := uint16(10)
+	blocks := FieldGenerator(beginY, b, k)
+	// for _, b := range blocks {
+	// 	fmt.Printf("x: %f, y: %f, dy: %f, w: %f, h: %f\n", b.X, b.Y, b.Dy, b.w, b.h)
+	// }
+	if blocks[len(blocks)-1].Y != (beginY - b + (b / float64(k))) {
+		t.Fatalf("Last block has incorrect position")
+	}
+	if len(blocks) != int(k) {
+		t.Fatalf("Wrong count of blocks!")
+	}
+}

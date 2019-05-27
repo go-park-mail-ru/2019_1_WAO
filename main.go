@@ -7,6 +7,7 @@ import (
 	game "./game"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/spf13/viper"
 )
 
 var upgrader = websocket.Upgrader{
@@ -53,7 +54,13 @@ func main() {
 	http.Handle("/static/", http.StripPrefix("/static", fs))
 	fmt.Println("Server is listening")
 	// Rooms = make(map[string]connections)
-	GameController = game.NewGame(1) // New GameController
+	viper.SetConfigFile("./config/env.yml")
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(err)
+	}
+	GameController = game.NewGame(5) // New GameController
 	go GameController.Run()
+	fmt.Printf("Number at config file: %d\n", viper.GetInt64("numbers.num1"))
 	http.ListenAndServe(":8080", nil)
 }

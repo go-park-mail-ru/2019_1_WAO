@@ -5,7 +5,3 @@ type Command struct {
 	Direction string  `json:"direction"`
 	Delay     float64 `json:"delay"`
 }
-
-// func () RemoveCommand(command *Command) error {
-
-// }

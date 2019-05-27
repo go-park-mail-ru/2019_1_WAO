@@ -91,7 +91,7 @@ func (room *Room) Run() {
 				room.mutexRoom.Lock()
 				room.isStarted = true
 				log.Println("room init")
-				room.Blocks = FieldGenerator(HeightField-20, 2000, 2000*0.01)
+				room.Blocks = FieldGenerator(HeightField-spacing, float64(koefHeightOfMaxGenerateSlice), uint16(koefHeightOfMaxGenerateSlice*int(koefGeneratePlates)))
 				var players []*Player
 				room.Players.Range(func(_, p interface{}) bool {
 					players = append(players, p.(*Player))

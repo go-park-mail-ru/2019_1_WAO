@@ -97,3 +97,35 @@ func TestSize(t *testing.T) {
 // 		}
 // 	}
 // }
+
+func TestJump(t *testing.T) {
+	players := []*Player{
+		&Player{
+			Dy: -0.99,
+		},
+		&Player{
+			Dy: 555.46,
+		},
+
+		&Player{
+			Dy: -0.35,
+		},
+		&Player{
+			Dy: 0,
+		},
+	}
+	expected := -0.35
+	for _, player := range players {
+		player.Jump()
+		if player.Dy != -0.35 {
+			t.Errorf("Expected: %f, but got: %f", expected, player.Dy)
+		}
+	}
+}
+
+func TestNewPlayer(t *testing.T) {
+	player := NewPlayer(nil)
+	if player == nil {
+		t.Fatalf("Unexpected nil player\n")
+	}
+}

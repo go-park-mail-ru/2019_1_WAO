@@ -8,6 +8,8 @@ import (
 	"net"
 	_ "net/http"
 
+	"github.com/spf13/viper"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -49,14 +51,16 @@ func (player *Player) SelectNearestBlock(blocks *[]*Block) (nearestBlock *Block)
 	nearestBlock = nil
 	minY := math.MaxFloat64
 	// canvasY := player.canvas.y
+	var playerInAreaOfPlatefunc = func(plate *Block) bool {
+		return (player.X+player.W >= plate.X && player.X <= plate.X+plate.w)
+	}
+	var playerAbouteAPlate = func(plate *Block) bool {
+		return (plate.Y-player.Y < minY && player.Y <= plate.Y)
+	}
 	for _, block := range *blocks {
-
-		// if (block.Y-block.h > canvasY+700) || (block.Y < canvasY) {
-		// 	continue
-		// }
-		if player.X <= block.X+block.w && player.X+player.W >= block.X {
-			if math.Abs(block.Y-player.Y) < minY && player.Y <= block.Y {
-				minY = math.Abs(block.Y - player.Y)
+		if playerInAreaOfPlatefunc(block) {
+			if playerAbouteAPlate(block) {
+				minY = block.Y - player.Y
 				nearestBlock = block
 			}
 		}
@@ -88,10 +92,10 @@ func NewPlayer(conn *websocket.Conn) *Player {
 		commands:      make(chan *Command, 10),
 		engineDone:    make(chan struct{}, 1),
 		messagesClose: make(chan struct{}),
-		Dx:            0.2,
-		Dy:            0.002,
-		W:             50,
-		H:             40,
+		Dx:            viper.GetFloat64("player.dx"),
+		Dy:            viper.GetFloat64("player.dy"),
+		W:             viper.GetFloat64("player.width"),
+		H:             viper.GetFloat64("player.height"),
 		canvas: &Canvas{
 			y:  0,
 			dy: 0,

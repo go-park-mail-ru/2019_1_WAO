@@ -3,12 +3,21 @@ go:
 - 1.12
 script:
 - go build ./cmd/apisrv/
+- go build ./cmd/authsrv/
+- go build ./cmd/game/
 - ls -la
 - chmod 600 ./certificate_id_rsa.cer
 - ssh-keyscan -H 89.208.197.150 >> ~/.ssh/known_hosts
 - ssh -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl stop apisrv
 - scp -i ./certificate_id_rsa.cer -r ./apisrv ubuntu@89.208.197.150:/home/ubuntu/backend
 - ssh -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl start apisrv
+- ssh -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl stop authsrv
+- scp -i ./certificate_id_rsa.cer -r ./authsrv ubuntu@89.208.197.150:/home/ubuntu/backend
+- ssh -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl start authsrv
+- ssh -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl stop game
+- scp -i ./certificate_id_rsa.cer -r ./game ubuntu@89.208.197.150:/home/ubuntu/backend
+- ssh -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl start game
+
 branches:
   only:
   - master

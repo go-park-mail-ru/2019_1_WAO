@@ -35,6 +35,20 @@ func TestRemoveRoom(t *testing.T) {
 			t.Errorf("Expected count of rooms: %d, but got: %d\n", 3-i, len(game.rooms))
 		}
 	}
+	rooms := []*Room{
+		&Room{},
+		NewRoom(2, &Game{}),
+		NewRoom(3, &Game{}),
+		NewRoom(4, &Game{}),
+		NewRoom(5, &Game{}),
+		NewRoom(6, &Game{}),
+	}
+	for _, room := range rooms {
+		err := game.RemoveRoom(room) // We're trying to remove a room that does not exist
+		if err == nil {
+			t.Fatalf("Expected error with removing a room, but got nothing")
+		}
+	}
 }
 func TestAddRoom(t *testing.T) {
 	game := NewGame(4)
@@ -89,6 +103,7 @@ func gameActivate(s *httptest.Server, GameController *Game, done <-chan struct{}
 // 	// players := make([]*Player, 3)
 // 	// u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/ws"}
 // 	// u.RequestURI()
+// 	h :=
 // 	for i := 0; i < 2; i++ {
 // 		ws, _, err := websocket.DefaultDialer.Dial("ws://"+s.Listener.Addr().String()+"/ws", nil)
 // 		if err != nil {

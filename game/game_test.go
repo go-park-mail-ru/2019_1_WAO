@@ -235,3 +235,116 @@ func TestFieldGenerator(t *testing.T) {
 		t.Fatalf("Wrong count of blocks!")
 	}
 }
+
+func TestMove(t *testing.T) {
+	tests := []struct {
+		player    *Player
+		command   *Command
+		expectedX float64
+	}{
+		{
+			player: &Player{
+				X:  200,
+				Dx: 10,
+			},
+			command: &Command{
+				Delay:     2.0,
+				Direction: "LEFT",
+			},
+			expectedX: 180,
+		},
+		{
+			player: &Player{
+				X:  200,
+				Dx: 10,
+			},
+			command: &Command{
+				Delay:     5.0,
+				Direction: "RIGHT",
+			},
+			expectedX: 250,
+		},
+		{
+			player: &Player{
+				X:  200,
+				Dx: 10,
+			},
+			command: &Command{
+				Delay:     4.0,
+				Direction: "",
+			},
+			expectedX: 200,
+		},
+	}
+
+	for id, test := range tests {
+		player := test.player
+		player.Move(test.command)
+		if player.X != test.expectedX {
+			t.Fatalf("test %d failed. Expected x: %f, but got: %f", id, test.expectedX, player.X)
+		}
+	}
+}
+
+func TestPlayerMoveWithGravity(t *testing.T) {
+	player := &Player{
+		Y:  380,
+		Dy: 10,
+	}
+	delay := 2.0
+	player.PlayerMoveWithGravity(delay)
+	if player.Y != 400 {
+		t.Fatalf("Expected y: 400, but got y: %f", player.Y)
+	}
+}
+
+func TestCanvasMove(t *testing.T) {
+	canvas := &Canvas{
+		y:  480,
+		dy: 5,
+	}
+	delay := 4.0
+	canvas.CanvasMove(delay)
+	if canvas.y != 500 {
+		t.Fatalf("Expected y: 500, but got y: %f", canvas.y)
+	}
+}
+
+func TestMapUpdate(t *testing.T) {
+	player := &Player{
+		Y: -435,
+		canvas: &Canvas{
+			y: -450,
+		},
+	}
+	block := &Block{
+		Y: -400,
+	}
+	player.MapUpdate(block)
+}
+
+func TestStartScrolling(t *testing.T) {
+	player := &Player{
+		stateScrollMap: false,
+		canvas: &Canvas{
+			dy: 0,
+		},
+	}
+	player.StartScrolling()
+	if !(player.stateScrollMap && player.canvas.dy == -viper.GetFloat64("settings.koefScrollSpeed")) {
+		t.Fatalf("stateScrollMap or canvas.y is incorrect!")
+	}
+}
+
+func TestStopScrolling(t *testing.T) {
+	player := &Player{
+		stateScrollMap: true,
+		canvas: &Canvas{
+			dy: -viper.GetFloat64("settings.koefScrollSpeed"),
+		},
+	}
+	player.StopScrolling()
+	if !(player.stateScrollMap == false && player.canvas.dy == 0) {
+		t.Fatalf("stateScrollMap or canvas.y is incorrect!")
+	}
+}

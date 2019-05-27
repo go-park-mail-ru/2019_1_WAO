@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+
+	"github.com/spf13/viper"
 )
 
 // type RoomController struct{}
@@ -91,6 +93,10 @@ func (room *Room) Run() {
 				room.mutexRoom.Lock()
 				room.isStarted = true
 				log.Println("room init")
+				var HeightField float64 = viper.GetFloat64("canvas.heightField")
+				var spacing float64 = viper.GetFloat64("settings.spacing")
+				var koefGeneratePlates float64 = viper.GetFloat64("settings.koefGeneratePlates")
+				var koefHeightOfMaxGenerateSlice int = viper.GetInt("settings.koefHeightOfMaxGenerateSlice")
 				room.Blocks = FieldGenerator(HeightField-spacing, float64(koefHeightOfMaxGenerateSlice), uint16(koefHeightOfMaxGenerateSlice*int(koefGeneratePlates)))
 				var players []*Player
 				room.Players.Range(func(_, p interface{}) bool {

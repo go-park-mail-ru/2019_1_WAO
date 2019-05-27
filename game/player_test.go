@@ -129,3 +129,23 @@ func TestNewPlayer(t *testing.T) {
 		t.Fatalf("Unexpected nil player\n")
 	}
 }
+
+// func TestEngine(t *testing.T) {
+// 	plr := NewPlayer(nil)
+// 	plr2 := NewPlayer(nil)
+// 	game := NewGame(2)
+// 	game.AddPlayer(plr)
+// 	game.AddPlayer(plr2)
+// 	go Engine(plr)
+// 	go Engine(plr2)
+// 	plr.commands <- &Command{
+// 		Delay:     1.0,
+// 		Direction: "LEFT",
+// 	}
+// 	plr2.commands <- &Command{
+// 		Delay:     1.0,
+// 		Direction: "RIGHT",
+// 	}
+// 	RemovePlayer(plr)
+// 	RemovePlayer(plr2)
+// }

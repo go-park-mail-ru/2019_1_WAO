@@ -185,6 +185,49 @@ func (room *Room) HighestPlayer() *Player {
 	room.mutexEngine.Unlock()
 	return maxYPlayer
 }
+
+func (player *Player) Move(command *Command) {
+	if command.Direction == "LEFT" {
+		player.X -= player.Dx * command.Delay
+	} else if command.Direction == "RIGHT" {
+		player.X += player.Dx * command.Delay
+	}
+}
+
+func (player *Player) PlayerMoveWithGravity(delay float64) {
+	player.Y += (player.Dy * delay)
+}
+
+func (canvas *Canvas) CanvasMove(delay float64) {
+	canvas.y += canvas.dy * delay
+}
+
+func (player *Player) MapUpdate(lastBlock *Block) (newBlocks []*Block, b float64) {
+	beginY := lastBlock.Y - viper.GetFloat64("settings.spacing")
+	koefHeightOfMaxGenerateSlice := viper.GetInt("settings.koefHeightOfMaxGenerateSlice")
+	koefGeneratePlates := viper.GetFloat64("settings.koefGeneratePlates")
+	b = float64(koefHeightOfMaxGenerateSlice) + (lastBlock.Y - player.canvas.y)
+	k := uint16(koefGeneratePlates * (float64(koefHeightOfMaxGenerateSlice) + (lastBlock.Y - player.canvas.y)))
+	newBlocks = FieldGenerator(beginY, b, k)
+	// for id, block := range newBlocks {
+	// 	fmt.Printf("block %d - x: %f, y: %f\n", id, block.X, block.Y)
+	// }
+	if len(newBlocks) == 0 {
+		log.Panicf("beginY: %f, b: %f, k: %d\n", beginY, b, k)
+	}
+	return
+}
+
+func (player *Player) StartScrolling() {
+	player.stateScrollMap = true // Сигнал запрещающий выполнять этот код еще раз пока не выполнится else
+	player.canvas.dy = -viper.GetFloat64("settings.koefScrollSpeed")
+}
+
+func (player *Player) StopScrolling() {
+	player.stateScrollMap = false // Scrolling was finished
+	player.canvas.dy = 0
+}
+
 func Engine(player *Player) {
 	defer func() {
 		if e := recover(); e != nil {
@@ -199,40 +242,33 @@ func Engine(player *Player) {
 			return
 		default:
 			if player.Y-player.H > player.canvas.y+HeightField {
-				log.Printf("Player with id %d lose!\n", player.IdP)
+				// log.Printf("Player with id %d lose!\n", player.IdP)
 				KillPlayer(player)
 				RemovePlayer(player)
 				return
 			}
 			if player.Y-player.canvas.y <= maxScrollHeight && player.stateScrollMap == false {
 				player.room.mutexEngine.Lock()
-				player.stateScrollMap = true // Сигнал запрещающий выполнять этот код еще раз пока не выполнится else
-				player.canvas.dy = -koefScrollSpeed
+				player.StartScrolling()
 				player.room.mutexEngine.Unlock()
-				log.Printf("Canvas with player id%d is moving...\n", player.IdP)
+				// log.Printf("Canvas with player id%d is moving...\n", player.IdP)
 				if player == player.room.HighestPlayer() {
 					player.room.mutexEngine.Lock()
 					player.room.scrollCount++
 					player.room.mutexEngine.Unlock()
-					log.Println("Map scrolling is starting...")
-					fmt.Printf("Count of scrolling: %d\n", player.room.scrollCount)
-					fmt.Println("Players:")
-					player.room.Players.Range(func(_, plr interface{}) bool {
-						fmt.Printf("id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", plr.(*Player).IdP, plr.(*Player).X, plr.(*Player).Y, plr.(*Player).Dx, plr.(*Player).Dy)
-						fmt.Printf("Canvas for id%d y: %f, dy: %f\n", plr.(*Player).IdP, plr.(*Player).canvas.y, plr.(*Player).canvas.dy)
-						return true
-					})
+					// log.Println("Map scrolling is starting...")
+					// fmt.Printf("Count of scrolling: %d\n", player.room.scrollCount)
+					// fmt.Println("Players:")
+					// player.room.Players.Range(func(_, plr interface{}) bool {
+					// 	fmt.Printf("id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", plr.(*Player).IdP, plr.(*Player).X, plr.(*Player).Y, plr.(*Player).Dx, plr.(*Player).Dy)
+					// 	fmt.Printf("Canvas for id%d y: %f, dy: %f\n", plr.(*Player).IdP, plr.(*Player).canvas.y, plr.(*Player).canvas.dy)
+					// 	return true
+					// })
 					// Send new map to players
 					player.room.mutexEngine.Lock()
 					lastBlock := player.room.Blocks[len(player.room.Blocks)-1]
 					player.room.mutexEngine.Unlock()
-					beginY := lastBlock.Y - spacing
-					b := float64(koefHeightOfMaxGenerateSlice) + (lastBlock.Y - player.canvas.y)
-					k := uint16(koefGeneratePlates * (float64(koefHeightOfMaxGenerateSlice) + (lastBlock.Y - player.canvas.y)))
-					newBlocks := FieldGenerator(beginY, b, k)
-					if len(newBlocks) == 0 {
-						log.Panicf("beginY: %f, b: %f, k: %d\n", beginY, b, k)
-					}
+					newBlocks, b := player.MapUpdate(lastBlock)
 					player.room.mutexEngine.Lock()
 					player.room.Blocks = append(player.room.Blocks, newBlocks...)
 					player.room.mutexEngine.Unlock()
@@ -262,26 +298,25 @@ func Engine(player *Player) {
 							Type:    "map",
 							Payload: buffer,
 						})
-						log.Printf("New blocks for id %d:\n", playerWithCanvas.(*Player).IdP)
-						for _, block := range newBlocksForPlayer {
-							fmt.Printf("x: %f, y: %f, w: %f, h: %f\n", block.X, block.Y, block.w, block.h)
-						}
+						// log.Printf("New blocks for id %d:\n", playerWithCanvas.(*Player).IdP)
+						// for _, block := range newBlocksForPlayer {
+						// 	fmt.Printf("x: %f, y: %f, w: %f, h: %f\n", block.X, block.Y, block.w, block.h)
+						// }
 						return true
 					})
 					player.room.mutexEngine.Unlock()
-					log.Println("******* MAP WAS SENDED *******")
-					log.Println("New blocks:")
-					for _, block := range newBlocks {
-						fmt.Printf("x: %f, y: %f, w: %f, h: %f\n", block.X, block.Y, block.w, block.h)
-					}
+					// log.Println("******* MAP WAS SENDED *******")
+					// log.Println("New blocks:")
+					// for _, block := range newBlocks {
+					// 	fmt.Printf("x: %f, y: %f, w: %f, h: %f\n", block.X, block.Y, block.w, block.h)
+					// }
 
 				}
 			} else if player.Y-player.canvas.y >= minScrollHeight && player.stateScrollMap == true {
 				player.room.mutexEngine.Lock()
-				player.stateScrollMap = false // Scrolling was finished
-				player.canvas.dy = 0
+				player.StopScrolling()
 				player.room.mutexEngine.Unlock()
-				log.Printf("Canvas with player id%d was stopped...\n", player.IdP)
+				// log.Printf("Canvas with player id%d was stopped...\n", player.IdP)
 				// player.room.mutex.Lock()
 				// log.Println("Map scrolling is finishing...")
 				// fmt.Printf("Count of scrolling: %d\n", player.room.scrollCount)
@@ -329,20 +364,16 @@ func Engine(player *Player) {
 					player.commandCounter++
 					player.room.mutexEngine.Unlock()
 				}
-				if command.Direction == "LEFT" {
+				if command.Direction == "LEFT" || command.Direction == "RIGHT" {
 					player.room.mutexEngine.Lock()
-					player.X -= player.Dx * command.Delay
-					player.room.mutexEngine.Unlock()
-				} else if command.Direction == "RIGHT" {
-					player.room.mutexEngine.Lock()
-					player.X += player.Dx * command.Delay
+					player.Move(command)
 					player.room.mutexEngine.Unlock()
 				}
 				player.room.mutexEngine.Lock()
 				ProcessSpeed(command.Delay, player, gravity)
 				Collision(command.Delay, player, player.SelectNearestBlock(&player.room.Blocks))
-				player.Y += (player.Dy * command.Delay)
-				player.canvas.y += player.canvas.dy * command.Delay
+				player.PlayerMoveWithGravity(command.Delay)
+				player.canvas.CanvasMove(command.Delay)
 				player.room.mutexEngine.Unlock()
 			}
 			// if player.Dy > viper.GetFloat64("player.speedLimit") {

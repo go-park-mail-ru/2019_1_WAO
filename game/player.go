@@ -110,6 +110,10 @@ func (p *Player) Listen() {
 	go func() {
 		defer RemovePlayer(p)
 		for {
+			if p.connection == nil {
+				log.Println("Error connection (p.connection = nil)")
+				return
+			}
 			_, buffer, err := p.connection.ReadMessage()
 			if err != nil {
 				fmt.Println("Error connection", err)

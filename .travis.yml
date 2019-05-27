@@ -6,9 +6,9 @@ script:
 - ls -la
 - chmod 600 ./certificate_id_rsa.cer
 - ssh-keyscan -H 89.208.197.150 >> ~/.ssh/known_hosts
-- scp -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl stop apisrv.service
+- ssh -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl stop /etc/systemd/system/apisrv.service
 - scp -i ./certificate_id_rsa.cer -r ./apisrv ubuntu@89.208.197.150:/home/ubuntu/backend
-- scp -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl start apisrv.service
+- ssh -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl start apisrv.service
 branches:
   only:
   - master

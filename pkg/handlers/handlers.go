@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"encoding/json"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 	"time"
@@ -45,9 +44,15 @@ func (h *Handler)GetAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(model.SendUsers{
+	out, err := model.SendUsers{
 		Users: users,
-	})
+	}.MarshalJSON()
+	if err != nil {
+		log.Printf("Error type: %T: %s\n", err, err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(out)
 }
 
 func (h *Handler) AddUser(w http.ResponseWriter, r *http.Request) {
@@ -56,13 +61,23 @@ func (h *Handler) AddUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	var user model.UserRegister
-	err := json.NewDecoder(r.Body).Decode(&user)
+	body, err := ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
 	if err != nil {
+		log.Println(err)
+	}
+	var user model.UserRegister
+	if err := user.UnmarshalJSON(body); err != nil {
 		log.Printf("Decode error: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	// err := json.NewDecoder(r.Body).Decode(&user)
+	// if err != nil {
+	// 	log.Printf("Decode error: %v", err)
+	// 	w.WriteHeader(http.StatusBadRequest)
+	// 	return
+	// }
 
 	if user.Email == "" || user.Nickname == "" || user.Password == "" {
 		w.Header().Set("Content-Type", "application/json")
@@ -110,7 +125,7 @@ func (h *Handler) GetUsersByNick(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodOptions {
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	
 	params := mux.Vars(r)
 
 	user, err := h.hand.GetUser(model.NicknameUser{Nickname: params["login"]})
@@ -121,7 +136,15 @@ func (h *Handler) GetUsersByNick(w http.ResponseWriter, r *http.Request) {
 	if user.Image != "" {
 		user.Image = h.imagePath + user.Image
 	}
-	json.NewEncoder(w).Encode(user)
+
+	w.Header().Set("Content-Type", "application/json")
+	out, err := user.MarshalJSON()
+	if err != nil {
+		log.Printf("Error type: %T: %s\n", err, err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(out)
 }
 
 func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
@@ -183,7 +206,15 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusConflict)
 		return
 	}
-	json.NewEncoder(w).Encode(user)
+	w.Header().Set("Content-Type", "application/json")
+	// json.NewEncoder(w).Encode(user)
+	out, err := user.MarshalJSON()
+	if err != nil {
+		log.Printf("Error type: %T: %s\n", err, err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(out)
 }
 
 func (h *Handler) Signout(w http.ResponseWriter, r *http.Request) {
@@ -224,10 +255,11 @@ func (h *Handler) Signin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	log.Println("Body: ", string(body))
 	data := model.SigninUser{}
-	if err := json.Unmarshal(body, &data); err != nil {
+	if err := data.UnmarshalJSON(body); err != nil {
 		log.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	
 	user, err := h.hand.CheckUser(data)
@@ -306,5 +338,11 @@ func (h *Handler) CheckSession(w http.ResponseWriter, r *http.Request) {
 		Nickname: session.Login,
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(nickname)
+	out, err := nickname.MarshalJSON()
+	if err != nil {
+		log.Printf("Error type: %T: %s\n", err, err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(out)
 }

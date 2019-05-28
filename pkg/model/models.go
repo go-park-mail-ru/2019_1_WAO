@@ -1,5 +1,7 @@
 package model
 
+// easyjson -all .\models.go
+
 type UserRegister struct {
 	Email    string `json:"email, omitempty"`
 	Password string `json:"password, omitempty"`

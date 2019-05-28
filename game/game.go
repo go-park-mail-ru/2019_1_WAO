@@ -42,6 +42,9 @@ func CheckDevelopmentEnvironment() bool {
 }
 
 func FieldGenerator(beginY float64, b float64, k uint16) (newBlocks []*Block) {
+	var WidthField float64 = viper.GetFloat64("canvas.widthField")
+	var leftIndent float64 = viper.GetFloat64("settings.leftIndent")
+	var rightIndent float64 = viper.GetFloat64("settings.rightIndent")
 	// beginY was sended as the parameter
 	p := b / float64(k) // Плотность
 	var currentX float64
@@ -267,7 +270,7 @@ func Engine(player *Player) {
 				player.room.mutexEngine.Lock()
 				player.StartScrolling()
 				player.room.mutexEngine.Unlock()
-				// log.Printf("Canvas with player id%d is moving...\n", player.IdP)
+				log.Printf("Canvas with player id%d is moving...\n", player.IdP)
 				if player == player.room.HighestPlayer() {
 					player.room.mutexEngine.Lock()
 					player.room.scrollCount++
@@ -323,18 +326,18 @@ func Engine(player *Player) {
 						return true
 					})
 					player.room.mutexEngine.Unlock()
-					// log.Println("******* MAP WAS SENDED *******")
-					// log.Println("New blocks:")
-					// for _, block := range newBlocks {
-					// 	fmt.Printf("x: %f, y: %f, w: %f, h: %f\n", block.X, block.Y, block.w, block.h)
-					// }
+					log.Println("******* MAP WAS SENDED *******")
+					log.Println("New blocks:")
+					for _, block := range newBlocks {
+						fmt.Printf("x: %f, y: %f, w: %f, h: %f\n", block.X, block.Y, block.w, block.h)
+					}
 
 				}
 			} else if player.Y-player.canvas.y >= minScrollHeight && player.stateScrollMap == true {
 				player.room.mutexEngine.Lock()
 				player.StopScrolling()
 				player.room.mutexEngine.Unlock()
-				// log.Printf("Canvas with player id%d was stopped...\n", player.IdP)
+				log.Printf("Canvas with player id%d was stopped...\n", player.IdP)
 				// player.room.mutex.Lock()
 				// log.Println("Map scrolling is finishing...")
 				// fmt.Printf("Count of scrolling: %d\n", player.room.scrollCount)

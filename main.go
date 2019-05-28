@@ -61,6 +61,5 @@ func main() {
 	}
 	GameController = game.NewGame(5) // New GameController
 	go GameController.Run()
-	fmt.Printf("Number at config file: %d\n", viper.GetInt64("numbers.num1"))
 	http.ListenAndServe(":8080", nil)
 }

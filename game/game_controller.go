@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"sync"
+
+	"github.com/spf13/viper"
 )
 
 type Game struct {
@@ -51,7 +53,9 @@ LOOP:
 
 func (g *Game) AddPlayer(player *Player) {
 	log.Printf("Player %d queued to add\n", player.IdP)
-	go player.Listen()
+	if viper.ConfigFileUsed() != "../config/test.yml" {
+		go player.Listen()
+	}
 	g.register <- player
 }
 

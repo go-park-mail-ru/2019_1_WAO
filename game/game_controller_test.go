@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
+	"github.com/spf13/viper"
 )
 
 func TestNewGame(t *testing.T) {
@@ -125,3 +126,19 @@ func gameActivate(s *httptest.Server, GameController *Game, done <-chan struct{}
 // 	}
 // 	done <- struct{}{}
 // }
+
+func TestAddPlayerToTheGame(t *testing.T) {
+	viper.SetConfigFile("../config/test.yml")
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(err)
+	}
+	player := NewPlayer(nil)
+	player2 := NewPlayer(nil)
+	player3 := NewPlayer(nil)
+	game := NewGame(2)
+	go game.Run()
+	game.AddPlayer(player)
+	game.AddPlayer(player2)
+	game.AddPlayer(player3)
+}

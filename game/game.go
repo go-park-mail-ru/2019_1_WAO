@@ -32,9 +32,14 @@ var koefHeightOfMaxGenerateSlice int = viper.GetInt("settings.koefHeightOfMaxGen
 var leftIndent float64 = viper.GetFloat64("settings.leftIndent")
 var rightIndent float64 = viper.GetFloat64("settings.rightIndent")
 
-var maxCountOfCommands uint64 = viper.GetUint64("player.maxCountOfCommands")
-
 // this.idPhysicBlockCounter = 0;  // Уникальный идентификатор нужен для отрисовки новых объектов
+
+func CheckDevelopmentEnvironment() bool {
+	if viper.ConfigFileUsed() != "../config/test.yml" {
+		return true
+	}
+	return false
+}
 
 func FieldGenerator(beginY float64, b float64, k uint16) (newBlocks []*Block) {
 	// beginY was sended as the parameter
@@ -64,7 +69,8 @@ func ProcessSpeed(delay float64, player *Player, gravity float64) {
 
 // Отрисовка по кругу
 
-func CircleDraw(player *Player, WidthField float64) {
+func CircleDraw(player *Player) {
+	WidthField := viper.GetFloat64("canvas.widthField")
 	if player.X > WidthField {
 		player.X = 0
 	} else if player.X < 0 {
@@ -212,9 +218,10 @@ func (player *Player) MapUpdate(lastBlock *Block) (newBlocks []*Block, b float64
 	// for id, block := range newBlocks {
 	// 	fmt.Printf("block %d - x: %f, y: %f\n", id, block.X, block.Y)
 	// }
-	if len(newBlocks) == 0 {
-		log.Panicf("beginY: %f, b: %f, k: %d\n", beginY, b, k)
-	}
+	// ! TO CATCH NIL !
+	// if len(newBlocks) == 0 {
+	// 	log.Panicf("beginY: %f, b: %f, k: %d\n", beginY, b, k)
+	// }
 	return
 }
 
@@ -232,10 +239,17 @@ func Engine(player *Player) {
 	defer func() {
 		if e := recover(); e != nil {
 			log.Println("Error at physic treatment was occured (function Engine)", e)
-			KillPlayer(player)
+			if CheckDevelopmentEnvironment() {
+				KillPlayer(player)
+			}
 			RemovePlayer(player)
 		}
 	}()
+	var maxCountOfCommands uint64 = viper.GetUint64("player.maxCountOfCommands")
+	var HeightField float64 = viper.GetFloat64("canvas.heightField")
+	var gravity float64 = viper.GetFloat64("settings.gravity")
+	var maxScrollHeight float64 = 0.25 * HeightField
+	var minScrollHeight float64 = 0.75 * HeightField
 	for {
 		select {
 		case <-player.engineDone:
@@ -243,7 +257,9 @@ func Engine(player *Player) {
 		default:
 			if player.Y-player.H > player.canvas.y+HeightField {
 				// log.Printf("Player with id %d lose!\n", player.IdP)
-				KillPlayer(player)
+				if CheckDevelopmentEnvironment() {
+					KillPlayer(player)
+				}
 				RemovePlayer(player)
 				return
 			}
@@ -294,10 +310,12 @@ func Engine(player *Player) {
 							player.room.mutexEngine.Unlock()
 							return false // ?
 						}
-						playerWithCanvas.(*Player).SendMessage(&Message{
-							Type:    "map",
-							Payload: buffer,
-						})
+						if CheckDevelopmentEnvironment() {
+							playerWithCanvas.(*Player).SendMessage(&Message{
+								Type:    "map",
+								Payload: buffer,
+							})
+						}
 						// log.Printf("New blocks for id %d:\n", playerWithCanvas.(*Player).IdP)
 						// for _, block := range newBlocksForPlayer {
 						// 	fmt.Printf("x: %f, y: %f, w: %f, h: %f\n", block.X, block.Y, block.w, block.h)
@@ -330,7 +348,7 @@ func Engine(player *Player) {
 				// }
 			}
 			player.room.mutexEngine.Lock()
-			CircleDraw(player, WidthField)
+			CircleDraw(player)
 			player.room.mutexEngine.Unlock()
 			select {
 			case command := <-player.commands:
@@ -352,11 +370,12 @@ func Engine(player *Player) {
 						player.room.mutexEngine.Unlock()
 						continue
 					}
-
-					player.SendMessage(&Message{
-						Type:    "updatePositions",
-						Payload: buf,
-					})
+					if CheckDevelopmentEnvironment() {
+						player.SendMessage(&Message{
+							Type:    "updatePositions",
+							Payload: buf,
+						})
+					}
 					player.commandCounter = 0
 					player.room.mutexEngine.Unlock()
 				} else {

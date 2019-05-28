@@ -77,14 +77,6 @@ func (player *Player) SetPlayerOnPlate(block *Block) {
 	player.X = block.X + block.w/2 // Отцентровка игрока по середине
 }
 
-func (player *Player) CircleDraw() {
-	if player.X > WidthField {
-		player.X = 0
-	} else if player.X < 0 {
-		player.X = WidthField
-	}
-}
-
 func NewPlayer(conn *websocket.Conn) *Player {
 	newPlayer := &Player{
 		connection:    conn,
@@ -106,6 +98,16 @@ func NewPlayer(conn *websocket.Conn) *Player {
 	return newPlayer
 }
 
+func (p *Player) GetCommandStruct(payload json.RawMessage) *Command {
+	var command Command
+	if err := json.Unmarshal([]byte(payload), &command); err != nil {
+		fmt.Println("Moving error was occured", err)
+		return nil
+	}
+	// fmt.Printf("Direction: %s, dt: %f\n", command.Direction, command.Delay)
+	command.IdP = p.IdP
+	return &command
+}
 func (p *Player) Listen() {
 	go func() {
 		defer RemovePlayer(p)
@@ -142,12 +144,7 @@ func (p *Player) Listen() {
 			switch msg.Type {
 			case "move":
 				var command Command
-				if err := json.Unmarshal([]byte(msg.Payload), &command); err != nil {
-					fmt.Println("Moving error was occured", err)
-					return
-				}
-				// fmt.Printf("Direction: %s, dt: %f\n", command.Direction, command.Delay)
-				command.IdP = p.IdP
+				command = *(p.GetCommandStruct(msg.Payload))
 				p.commands <- &command
 				payload, err := json.Marshal(command)
 				if err != nil {

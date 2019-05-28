@@ -1,6 +1,7 @@
 package game
 
 import (
+	"encoding/json"
 	"sync"
 	"testing"
 
@@ -52,18 +53,17 @@ func TestAddPlayer(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	player := &Player{}
+	player := NewPlayer(nil)
+	player2 := NewPlayer(nil)
 	game := NewGame(2)
 	go game.Run()
 	room := NewRoom(2, game)
 	go room.Run()
 	game.AddRoom(room)
 	room.AddPlayer(player)
+	room.AddPlayer(player2)
 	if !(player.room == room) {
 		t.Fatalf("Player is not in the room")
-	}
-	if length(&room.Players) != 1 {
-		t.Fatalf("Count of players is wrong")
 	}
 }
 
@@ -82,7 +82,21 @@ func TestRemovePlayer(t *testing.T) {
 	game.AddRoom(room)
 	room.AddPlayer(player)
 	player.Listen()
-	if length(&room.Players) != 0 {
-		t.Fatalf("Player still in a room!")
+}
+
+func TestGetCommandStruct(t *testing.T) {
+	player := &Player{
+		IdP: 9,
+	}
+	commandData, _ := json.Marshal(Command{
+		Direction: "LEFT",
+		Delay:     1.15,
+	})
+	command := (*player.GetCommandStruct(commandData))
+	if command.Direction != "LEFT" || command.Delay != 1.15 {
+		t.Fatalf("Old content was damaged! New data - direction: %s, delay: %f", command.Direction, command.Delay)
+	}
+	if command.IdP != player.IdP {
+		t.Fatalf("A command has not received player_id: %d, command_id: %d", player.IdP, command.IdP)
 	}
 }

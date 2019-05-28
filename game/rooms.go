@@ -97,8 +97,9 @@ func (room *Room) Run() {
 				var spacing float64 = viper.GetFloat64("settings.spacing")
 				var koefGeneratePlates float64 = viper.GetFloat64("settings.koefGeneratePlates")
 				var koefHeightOfMaxGenerateSlice int = viper.GetInt("settings.koefHeightOfMaxGenerateSlice")
-				room.Blocks = FieldGenerator(HeightField-spacing, float64(koefHeightOfMaxGenerateSlice), uint16(koefHeightOfMaxGenerateSlice*int(koefGeneratePlates)))
+				room.Blocks = FieldGenerator(HeightField-spacing, float64(koefHeightOfMaxGenerateSlice), uint16(float64(koefHeightOfMaxGenerateSlice)*koefGeneratePlates))
 				var players []*Player
+				log.Printf("len_blocks: %d", len(room.Blocks))
 				room.Players.Range(func(_, p interface{}) bool {
 					players = append(players, p.(*Player))
 					p.(*Player).SetPlayerOnPlate(room.Blocks[0])
@@ -107,6 +108,10 @@ func (room *Room) Run() {
 				blocksAndPlayers := BlocksAndPlayers{
 					Blocks:  room.Blocks,
 					Players: players,
+				}
+				if viper.ConfigFileUsed() == "../config/test.yml" {
+					room.mutexRoom.Unlock()
+					return
 				}
 				payload, err := json.Marshal(blocksAndPlayers)
 				if err != nil {
@@ -123,6 +128,7 @@ func (room *Room) Run() {
 				payload2, err := json.Marshal(blocksAndPlayers)
 				if err != nil {
 					log.Println("Error blocks and players is occured", err)
+					room.mutexRoom.Unlock()
 					return
 				}
 				msg2 := &Message{

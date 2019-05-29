@@ -50,7 +50,6 @@ func CORSMiddleware(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With, Content-Type, Origin")
 			w.Header().Set("Content-Security-Policy", "default-src 'self'")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("x-WAO", "12")
 		}
 		next.ServeHTTP(w, r)
 	})

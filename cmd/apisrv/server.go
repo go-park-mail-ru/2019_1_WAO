@@ -46,11 +46,9 @@ func main() {
 		hostAuth,
 		grpc.WithInsecure(),
 	)
-
 	if err != nil {
 		log.Println("Can't connect to gRPC")
 	}
-	defer grpcConnect.Close()
 
 	sessionManager = auth.NewAuthCheckerClient(grpcConnect)
 
@@ -61,7 +59,8 @@ func main() {
 		sig := <-gracefulStop
 		log.Printf("caught sig: %+v", sig)
 		connection.DB.Close()
-		log.Println("Connection close")
+		grpcConnect.Close()
+		log.Println("Connections close")
 		os.Exit(0)
 	}()
 

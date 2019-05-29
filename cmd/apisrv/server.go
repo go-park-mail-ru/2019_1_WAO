@@ -6,7 +6,8 @@ import (
 	"net/http"
 	"os"
 	"time"
-
+	"os/signal"
+	"syscall"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/auth"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/aws"
 	"github.com/DmitriyPrischep/backend-WAO/pkg/driver"
@@ -53,7 +54,16 @@ func main() {
 
 	sessionManager = auth.NewAuthCheckerClient(grpcConnect)
 
-	defer connection.DB.Close()
+	var gracefulStop = make(chan os.Signal)
+	signal.Notify(gracefulStop, syscall.SIGTERM)
+	signal.Notify(gracefulStop, syscall.SIGINT)
+	go func() {
+		sig := <-gracefulStop
+		log.Printf("caught sig: %+v", sig)
+		connection.DB.Close()
+		log.Println("Connection close")
+		os.Exit(0)
+	}()
 
 	port := viper.GetString("apisrv.port")
 	host := viper.GetString("apisrv.host")

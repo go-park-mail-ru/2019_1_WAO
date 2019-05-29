@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/DmitriyPrischep/backend-WAO/pkg/auth"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 	"net"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"github.com/DmitriyPrischep/backend-WAO/pkg/auth"
 )
 
 var (
@@ -26,8 +28,17 @@ func main() {
 	host := viper.GetString("authsrv.host")
 	listener, err := net.Listen("tcp", ":" + port)
 	if err != nil {
-		log.Fatalln("cant listet port", err)
+		log.Fatalln("Can't listet port", err)
 	}
+
+	var gracefulStop = make(chan os.Signal)
+	signal.Notify(gracefulStop, syscall.SIGTERM)
+	signal.Notify(gracefulStop, syscall.SIGINT)
+	go func() {
+		sig := <-gracefulStop
+		log.Printf("Caught sig: %+v\n Graceful stop service", sig)
+		os.Exit(0)
+	}()
 	
 	server := grpc.NewServer()
 	auth.RegisterAuthCheckerServer(server, NewSessionManager())

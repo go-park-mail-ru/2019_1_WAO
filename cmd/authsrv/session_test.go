@@ -131,7 +131,6 @@ func TestCheckToken(t *testing.T) {
 	sess := NewSessionManager()
 	for caseNum, item := range cases {
 		token, err := sess.Create(item.ctx, item.out)
-
 		res, err := sess.Check(item.ctx, token)
 		if err != nil {
 			t.Errorf("[%d] wrong check token: got %v, expected %v",

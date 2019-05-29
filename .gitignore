@@ -5,3 +5,5 @@ TO DO
 docker/
 config.yml
 *.exe
+*.out
+*/*/fmt

@@ -6,21 +6,20 @@ script:
 - go build ./cmd/authsrv/
 - go build ./cmd/game/
 - ls -la
-- chmod 600 ./certificate_id_rsa.cer
+- chmod 600 ./Certificate_id_rsa.cer
 - ssh-keyscan -H 89.208.197.150 >> ~/.ssh/known_hosts
-- ssh -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl stop apisrv
-- scp -i ./certificate_id_rsa.cer -r ./apisrv ubuntu@89.208.197.150:/home/ubuntu/backend
-- ssh -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl start apisrv
-- ssh -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl stop authsrv
-- scp -i ./certificate_id_rsa.cer -r ./authsrv ubuntu@89.208.197.150:/home/ubuntu/backend
-- ssh -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl start authsrv
-- ssh -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl stop game
-- scp -i ./certificate_id_rsa.cer -r ./game ubuntu@89.208.197.150:/home/ubuntu/backend
-- ssh -i ./certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl start game
-
+- ssh -i ./Certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl stop apisrv
+- scp -i ./Certificate_id_rsa.cer -r ./apisrv ubuntu@89.208.197.150:/home/ubuntu/backend
+- ssh -i ./Certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl start apisrv
+- ssh -i ./Certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl stop authsrv
+- scp -i ./Certificate_id_rsa.cer -r ./authsrv ubuntu@89.208.197.150:/home/ubuntu/backend
+- ssh -i ./Certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl start authsrv
+- ssh -i ./Certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl stop game
+- scp -i ./Certificate_id_rsa.cer -r ./game ubuntu@89.208.197.150:/home/ubuntu/backend
+- ssh -i ./Certificate_id_rsa.cer ubuntu@89.208.197.150 sudo systemctl start game
 branches:
   only:
   - master
 before_install:
-- openssl aes-256-cbc -K $encrypted_fae475b27048_key -iv $encrypted_fae475b27048_iv
-  -in certificate_id_rsa.cer.enc -out certificate_id_rsa.cer -d
+- openssl aes-256-cbc -K $encrypted_55cce73df67a_key -iv $encrypted_55cce73df67a_iv
+  -in Certificate_id_rsa.cer.enc -out Certificate_id_rsa.cer -d

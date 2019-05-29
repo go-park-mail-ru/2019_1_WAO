@@ -12,6 +12,7 @@ require (
 	github.com/lib/pq v1.1.1
 	github.com/mailru/easyjson v0.0.0-20190403194419-1ea4449da983
 	github.com/spf13/viper v1.3.2
+	github.com/stretchr/testify v1.3.0
 	github.com/swaggo/files v0.0.0-20190110041405-30649e0721f8 // indirect
 	github.com/swaggo/http-swagger v0.0.0-20190506005510-79126c07518e
 	github.com/swaggo/swag v1.5.0 // indirect

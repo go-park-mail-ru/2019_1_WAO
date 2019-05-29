@@ -20,7 +20,6 @@ type DBService struct {
 func (s *DBService) GetUsers() (users []model.Player, err error) {
 	rows, err := s.DB.Query("SELECT id, nickname, score, games, wins FROM users ORDER by score DESC LIMIT 15;")
 	if err != nil {
-		log.Println("Method GetUsers:", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -37,7 +36,6 @@ func (s *DBService) GetUsers() (users []model.Player, err error) {
 	return users, err
 }
 func (s *DBService) GetUser(userdata model.NicknameUser) (user *model.User, err error) {
-	log.Println("DB DEBUG input(user)", userdata)
 	tmp := model.User{}
 	row := s.DB.QueryRow(`SELECT id, email, nickname, score, games, wins, image 
 						FROM users WHERE nickname = $1;`, userdata.Nickname)
@@ -51,7 +49,6 @@ func (s *DBService) GetUser(userdata model.NicknameUser) (user *model.User, err 
 		user = &tmp
 		return user, err
 	default:
-		log.Printf("Error type: %T: Method GetUser: %s\n", err, err.Error())
 		return nil, err
 	}
 }
@@ -61,7 +58,6 @@ func (s *DBService) CreateUser(user model.UserRegister) (nickname string, err er
 	VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING nickname`,
 	user.Email, user.Nickname, user.Password, 0, 0, 0, "default_image.png").Scan(&nickname)
 	if err != nil {
-		log.Printf("Error inserting record: %v", err)
 		return "", err
 	}
 	return user.Nickname, nil
@@ -83,7 +79,6 @@ func (s *DBService) UpdateUser(user model.UpdateDataImport) (out model.UpdateDat
 		user.Email, user.Nickname, user.Password, user.Image, user.OldNick).Scan(&out.Email, &out.Nickname, &out.Image)
 	switch err {
 	case sql.ErrNoRows:
-		log.Println("Method Update UserData: No rows were returned!")
 		exportData := model.UpdateDataExport{
 			Email:    user.Email,
 			Nickname: user.Nickname,
@@ -94,12 +89,10 @@ func (s *DBService) UpdateUser(user model.UpdateDataImport) (out model.UpdateDat
 		log.Println("new data of user: ", user)
 		return out, nil
 	default:
-		log.Println("Error updating record:", err)
 		return model.UpdateDataExport{}, err
 	}
 }
 func (s *DBService) CheckUser(user model.SigninUser) (out *model.UserRegister, err error) {
-	log.Println("DB DEBUG input(user)", user)
 	tmp := model.UserRegister{}
 	row := s.DB.QueryRow(`SELECT email, nickname, password FROM users WHERE nickname = $1`, user.Nickname)
 	switch err := row.Scan(&tmp.Email, &tmp.Nickname, &tmp.Password); err {
@@ -110,7 +103,6 @@ func (s *DBService) CheckUser(user model.SigninUser) (out *model.UserRegister, e
 		out = &tmp
 		return out, err		
 	default:
-		log.Println("Method Signin User: ", err)
 		return nil, err
 	}
 }

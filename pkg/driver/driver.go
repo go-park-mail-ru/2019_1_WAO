@@ -18,7 +18,6 @@ func ConnectSQL(uname, pass, dbname, sslmode string) (*DB, error) {
 
 	connectStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=%s",
 		uname, pass, dbname, sslmode)
-
 	db, err := sql.Open("postgres", connectStr)
 	if err != nil {
 		log.Printf("No connection to DB: %v", err)

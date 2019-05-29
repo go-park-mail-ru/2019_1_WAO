@@ -186,7 +186,7 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 		defer file.Close()
 		
 		conn := aws.NewConnectAWS(h.aws)
-		url, err = conn.UploadImage(file, handler)
+		url, err = conn.UploadImage(file, handler.Filename, handler.Size)
 		if err != nil {
 			log.Printf("Upload image error: %T\n %s\n", err, err.Error())
 			w.WriteHeader(http.StatusTeapot)

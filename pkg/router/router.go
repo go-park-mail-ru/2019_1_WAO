@@ -25,9 +25,9 @@ func CreateRouter(prefix, urlCORS, urlImage string, serviceSession auth.AuthChec
 
 	apiV1.HandleFunc("/users", userHandler.GetAll).Methods("GET", "OPTIONS")
 	apiV1.HandleFunc("/users", userHandler.AddUser).Methods("POST", "OPTIONS")	
-	apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(userHandler.GetUsersByNick))).Methods("GET", "OPTIONS")
-	apiV1.Handle("/users/{login}", authMiddleware(http.HandlerFunc(userHandler.ModifiedUser))).Methods("PUT", "OPTIONS")
-	apiV1.Handle("/session", authMiddleware(http.HandlerFunc(userHandler.Signout))).Methods("DELETE")
+	apiV1.Handle("/users/{login}", AuthMiddleware(http.HandlerFunc(userHandler.GetUsersByNick))).Methods("GET", "OPTIONS")
+	apiV1.Handle("/users/{login}", AuthMiddleware(http.HandlerFunc(userHandler.ModifiedUser))).Methods("PUT", "OPTIONS")
+	apiV1.Handle("/session", AuthMiddleware(http.HandlerFunc(userHandler.Signout))).Methods("DELETE")
 	apiV1.HandleFunc("/session", userHandler.CheckSession).Methods("GET", "OPTIONS")
 	apiV1.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
@@ -38,30 +38,8 @@ func CreateRouter(prefix, urlCORS, urlImage string, serviceSession auth.AuthChec
 	siteMux.HandleFunc("/signin", userHandler.Signin)
 	siteMux.Handle("/favicon.ico", http.NotFoundHandler())
 
-	siteMux.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("WAO team"))
-	})
-
-	siteMux.HandleFunc("/update", func(w http.ResponseWriter, r *http.Request) {
-		var signUpForm = []byte(`
-		<html>
-			<body>
-			<form action="/api/users/man/Hotman" method="post" enctype="multipart/form-data">
-				NewEmail: <input type="text" name="email">
-				NewLogin: <input type="text" name="nickname">
-				NewPass: <input type="password" name="password">
-				Image: <input type="file" name="image">
-				<input type="submit" value="Upd">
-			</form>
-			</body>
-		</html>
-		`)
-		w.Write(signUpForm)
-		return
-	})
-
 	siteHandler := CORSMiddleware(siteMux)
-	siteHandler = logMiddleware(siteHandler)
-	siteHandler = panicMiddleware(siteHandler)
+	siteHandler = LogMiddleware(siteHandler)
+	siteHandler = PanicMiddleware(siteHandler)
 	return siteHandler
 }

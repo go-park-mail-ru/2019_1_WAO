@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"errors"
 	"log"
 	"mime/multipart"
 	"net/http"
@@ -34,10 +35,10 @@ func NewConnectAWS(conn *ConnectSetting) *ConnectSetting {
 	}
 }
 
-func (s *ConnectSetting) UploadImage(file multipart.File, fileHeader *multipart.FileHeader) (url string, err error) {
+func (s *ConnectSetting) UploadImage(file multipart.File, filename string, size int64) (url string, err error) {
 
 	log.Println("Secure Struct: ", s)
-	str := fileHeader.Filename + string(time.Now().Format("15:04:05.00000"))
+	str := filename + string(time.Now().Format("15:04:05.00000"))
 	hash := sha1.New()
 	hash.Write([]byte(str))
 	hashSHA1 := hex.EncodeToString(hash.Sum(nil))
@@ -52,8 +53,11 @@ func (s *ConnectSetting) UploadImage(file multipart.File, fileHeader *multipart.
 	cfg := aws.NewConfig().WithRegion(s.Region).WithCredentials(creds)
 	svc := s3.New(session.New(), cfg)
 
-	size := fileHeader.Size
 	buffer := make([]byte, size)
+	if size == 0{
+		log.Println("File is empty")
+		return "", errors.New("File is empty")
+	}
 	file.Read(buffer)
 	fileType := http.DetectContentType(buffer)
 

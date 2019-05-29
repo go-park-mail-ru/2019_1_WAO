@@ -72,12 +72,6 @@ func (h *Handler) AddUser(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	// err := json.NewDecoder(r.Body).Decode(&user)
-	// if err != nil {
-	// 	log.Printf("Decode error: %v", err)
-	// 	w.WriteHeader(http.StatusBadRequest)
-	// 	return
-	// }
 
 	if user.Email == "" || user.Nickname == "" || user.Password == "" {
 		w.Header().Set("Content-Type", "application/json")
@@ -207,7 +201,6 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	// json.NewEncoder(w).Encode(user)
 	out, err := user.MarshalJSON()
 	if err != nil {
 		log.Printf("Error type: %T: %s\n", err, err.Error())

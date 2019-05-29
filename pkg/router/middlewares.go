@@ -7,7 +7,7 @@ import (
 	"github.com/DmitriyPrischep/backend-WAO/pkg/handlers"
 )
 
-func authMiddleware(next http.Handler) http.Handler {
+func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println("authMiddleware", r.URL.Path)
 		if _, err := handlers.GetSession(r, Auth); err != nil {
@@ -19,7 +19,7 @@ func authMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func logMiddleware(next http.Handler) http.Handler {
+func LogMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println("logMiddleware", r.URL.Path)
 		start := time.Now()
@@ -29,13 +29,12 @@ func logMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func panicMiddleware(next http.Handler) http.Handler {
+func PanicMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println("panicMiddleware", r.URL.Path)
 		defer func() {
 			if err := recover(); err != nil {
 				log.Println("Recovered error" , err)
-				http.Error(w, "Internal server error", http.StatusInternalServerError)
 			}
 		}()
 		next.ServeHTTP(w, r)

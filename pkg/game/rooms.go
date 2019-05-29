@@ -109,7 +109,7 @@ func (room *Room) Run() {
 					Blocks:  room.Blocks,
 					Players: players,
 				}
-				if viper.ConfigFileUsed() == "../config/test.yml" {
+				if viper.ConfigFileUsed() == "./config/test.yml" {
 					room.mutexRoom.Unlock()
 					return
 				}

@@ -94,7 +94,7 @@ func gameActivate(s *httptest.Server, GameController *Game, done <-chan struct{}
 }
 
 func TestAddPlayerToTheGame(t *testing.T) {
-	viper.SetConfigFile("../config/test.yml")
+	viper.SetConfigFile("./config/test.yml")
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(err)
@@ -108,3 +108,4 @@ func TestAddPlayerToTheGame(t *testing.T) {
 	game.AddPlayer(player2)
 	game.AddPlayer(player3)
 }
+

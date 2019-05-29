@@ -24,7 +24,7 @@ func TestLength(t *testing.T) {
 }
 
 func TestAddPlayer(t *testing.T) {
-	viper.SetConfigFile("../config/test.yml")
+	viper.SetConfigFile("./config/test.yml")
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(err)
@@ -45,7 +45,7 @@ func TestAddPlayer(t *testing.T) {
 
 func TestRemovePlayer(t *testing.T) {
 
-	viper.SetConfigFile("../config/test.yml")
+	viper.SetConfigFile("./config/test.yml")
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(err)

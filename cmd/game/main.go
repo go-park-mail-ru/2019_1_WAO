@@ -87,11 +87,11 @@ func main() {
 		os.Exit(0)
 	}()
 
-	// viper.SetConfigFile("./config/env.yml")
-	// err := viper.ReadInConfig()
-	// if err != nil {
-	// 	panic(err)
-	// }
+	viper.SetConfigFile("./pkg/game/config/env.yml")
+	err = viper.ReadInConfig()
+	if err != nil {
+		panic(err)
+	}
 	countRoom := viper.GetString("game.countRoom")
 	cnt, err := strconv.ParseUint(countRoom, 10, 32)
 	if err != nil {

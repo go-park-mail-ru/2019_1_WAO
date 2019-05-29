@@ -26,7 +26,7 @@ func TestProcessSpeed(t *testing.T) {
 }
 
 func TestCircleDraw(t *testing.T) {
-	viper.SetConfigFile("../config/test.yml")
+	viper.SetConfigFile("./config/test.yml")
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(err)
@@ -305,7 +305,7 @@ func TestCollision(t *testing.T) {
 }
 
 func TestFieldGenerator(t *testing.T) {
-	viper.SetConfigFile("../config/test.yml")
+	viper.SetConfigFile("./config/test.yml")
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(err)
@@ -523,7 +523,7 @@ func TestHighestPlayer(t *testing.T) {
 }
 
 func TestEngine(t *testing.T) {
-	viper.SetConfigFile("../config/test.yml")
+	viper.SetConfigFile("./config/test.yml")
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(err)
@@ -566,7 +566,7 @@ func TestEngine(t *testing.T) {
 }
 
 func TestEngineScroll(t *testing.T) {
-	viper.SetConfigFile("../config/test.yml")
+	viper.SetConfigFile("./config/test.yml")
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(err)

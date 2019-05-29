@@ -33,8 +33,6 @@ func generateToken(in *auth.UserData) (token string, err error) {
 		"agent":    in.Agent,
 		"exp":      time.Now().Add(expiration).Unix(),
 	})
-	log.Printf("SECRET KEY (%T) %s", secret, secret)
-
 	tokenString, err := rawToken.SignedString([]byte(secret))
 	if err != nil {
 		return "", err
@@ -44,7 +42,7 @@ func generateToken(in *auth.UserData) (token string, err error) {
 
 // Create JWT for user
 func (sm *SessionManager) Create(ctx context.Context, in *auth.UserData) (*auth.Token, error) {
-	log.Println("call Create", in)
+	log.Println("call Create")
 	token, err := generateToken(in)
 	if err != nil {
 		log.Println("Token does not create:", err)
@@ -54,16 +52,13 @@ func (sm *SessionManager) Create(ctx context.Context, in *auth.UserData) (*auth.
 		Value: token,
 	}
 	//Add token to White list of DataBase
-	log.Println("Token create: ", id.Value)
 	return id, nil
 
 }
 
 // Check validation of token
 func (sm *SessionManager) Check(ctx context.Context, in *auth.Token) (*auth.UserData, error) {
-	log.Println("call Check")
-	log.Println("CMD")
-	log.Println(in)
+	log.Println("call Check", in)
 	var err error
 	token, err := jwt.Parse(in.Value, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -76,7 +71,6 @@ func (sm *SessionManager) Check(ctx context.Context, in *auth.Token) (*auth.User
 		return nil, err
 	}
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		log.Println("CLAIMS:", claims)
 		username, ok := claims["username"]
 		if !ok {
 			return nil, errors.New("Bad claims: field 'username' not exist")
@@ -85,7 +79,6 @@ func (sm *SessionManager) Check(ctx context.Context, in *auth.Token) (*auth.User
 		user := &auth.UserData{
 			Login: username.(string),
 		}
-		log.Println("Hooooray, Token is exist")
 		return user, nil
 	}
 	return nil, grpc.Errorf(codes.NotFound, "session not found")

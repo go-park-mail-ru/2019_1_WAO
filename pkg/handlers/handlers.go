@@ -52,7 +52,7 @@ func (h *Handler)GetAll(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("x-WAO", "14")
+	w.Header().Set("x-WAO", "15")
 	w.Write(out)
 }
 

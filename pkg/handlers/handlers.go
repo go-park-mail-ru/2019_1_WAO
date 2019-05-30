@@ -52,7 +52,6 @@ func (h *Handler)GetAll(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("x-WAO", "15")
 	w.Write(out)
 }
 
@@ -144,6 +143,7 @@ func (h *Handler) GetUsersByNick(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 	params := mux.Vars(r)
@@ -154,10 +154,20 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newData := model.UpdateDataImport{}
-	newData.Email = r.FormValue("email")
-	newData.Password = r.FormValue("password")
-	newData.Nickname = r.FormValue("nickname")
+	newData := model.UpdateDataImport{
+		Email: r.FormValue("email"),
+		Password: r.FormValue("password"),
+		Nickname: r.FormValue("nickname"),
+		OldNick: userLogin,
+	}
+
+	if newData.OldNick != newData.Nickname {
+		log.Println("old:", newData.OldNick, " new:", newData.Nickname)
+		log.Println("NEW DATA:", newData)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	if len(newData.Password) > 5 {
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newData.Password), bcrypt.DefaultCost)
 		if err != nil {
@@ -195,11 +205,16 @@ func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	newData.Image = url
+	log.Println("Before UPDATE: ", newData)
 	user, err := h.hand.UpdateUser(newData)
 	if err != nil {
 		log.Printf("Update User data error: %T\n %s\n", err, err.Error())
 		w.WriteHeader(http.StatusConflict)
 		return
+	}
+	log.Println("Before AFTER: ", user)
+	if user.Image != "" {
+		user.Image = h.imagePath + user.Image
 	}
 	w.Header().Set("Content-Type", "application/json")
 	out, err := user.MarshalJSON()
@@ -297,7 +312,7 @@ func GetSession(r *http.Request, authClient auth.AuthCheckerClient) (*auth.UserD
 	if err != nil {
 		return nil, err
 	}
-	log.Println("CookSession", cookieSessionID.Value)
+	log.Println("CookSession IS", cookieSessionID.Value)
 	sess, err := authClient.Check(
 		context.Background(),
 		&auth.Token{
@@ -322,6 +337,7 @@ func (h *Handler) CheckSession(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
+
 	session, err := GetSession(r, h.auth)
 	if err != nil {
 		log.Println("Error checking of session")

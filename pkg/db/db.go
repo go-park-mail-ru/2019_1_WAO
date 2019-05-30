@@ -64,19 +64,18 @@ func (s *DBService) CreateUser(user model.UserRegister) (nickname string, err er
 }
 
 func (s *DBService) UpdateUser(user model.UpdateDataImport) (out model.UpdateDataExport, err error) {
+	log.Println("INPUT DATA", user)
 	err = s.DB.QueryRow(`
 	UPDATE users SET
 		email = COALESCE(NULLIF($1, ''), email),
-		nickname = COALESCE(NULLIF($2, ''), nickname),
 		password = COALESCE(NULLIF($3, ''), password),
 		image = COALESCE(NULLIF($4, ''), image)
-	WHERE nickname = $5
+	WHERE nickname = $2
 	AND  (NULLIF($1, '') IS NOT NULL AND NULLIF($1, '') IS DISTINCT FROM email OR
-		 NULLIF($2, '') IS NOT NULL AND NULLIF($2, '') IS DISTINCT FROM nickname OR
-		 NULLIF($3, '') IS NOT NULL AND NULLIF($3, '') IS DISTINCT FROM password OR
-		 NULLIF($4, '') IS NOT NULL AND NULLIF($4, '') IS DISTINCT FROM password)
+		NULLIF($3, '') IS NOT NULL AND NULLIF($3, '') IS DISTINCT FROM password OR
+		NULLIF($4, '') IS NOT NULL AND NULLIF($4, '') IS DISTINCT FROM image)
 	RETURNING email, nickname, image;`,
-		user.Email, user.Nickname, user.Password, user.Image, user.OldNick).Scan(&out.Email, &out.Nickname, &out.Image)
+		user.Email, user.Nickname, user.Password, user.Image).Scan(&out.Email, &out.Nickname, &out.Image)
 	switch err {
 	case sql.ErrNoRows:
 		exportData := model.UpdateDataExport{
@@ -84,9 +83,10 @@ func (s *DBService) UpdateUser(user model.UpdateDataImport) (out model.UpdateDat
 			Nickname: user.Nickname,
 			Image:    user.Image,
 		}
+		log.Println("DB: no rows return")
 		return exportData, nil
 	case nil:
-		log.Println("new data of user: ", user)
+		log.Println("DB: new data of user: ", user)
 		return out, nil
 	default:
 		return model.UpdateDataExport{}, err

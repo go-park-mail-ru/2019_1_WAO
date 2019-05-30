@@ -25,7 +25,12 @@ const (
 )
 
 func main() {
-	viper.SetConfigFile(os.Args[1])
+	if len(os.Args) > 1 {
+		viper.SetConfigFile(os.Args[1])
+	} else {
+		log.Println("Config file is not select")
+		return
+	}
 	if err := viper.ReadInConfig(); err != nil {
 		log.Println("Cannot read config", err)
 		return

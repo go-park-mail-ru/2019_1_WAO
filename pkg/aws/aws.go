@@ -36,14 +36,10 @@ func NewConnectAWS(conn *ConnectSetting) *ConnectSetting {
 }
 
 func (s *ConnectSetting) UploadImage(file multipart.File, filename string, size int64) (url string, err error) {
-
-	log.Println("Secure Struct: ", s)
-	str := filename + string(time.Now().Format("15:04:05.00000"))
+	str := filename + string(time.Now().Format("15:04:05"))
 	hash := sha1.New()
 	hash.Write([]byte(str))
 	hashSHA1 := hex.EncodeToString(hash.Sum(nil))
-	log.Println("HASH:", hashSHA1)
-
 	creds := credentials.NewStaticCredentials(s.AccessKeyID , s.SecretAccessKey, s.Token)
 	_, err = creds.Get()
 	if err != nil {
@@ -76,17 +72,8 @@ func (s *ConnectSetting) UploadImage(file multipart.File, filename string, size 
 	_, err = svc.PutObject(params)
 	if err != nil {
 		log.Println("Put object error: ", err.Error())
+		return
 	}
-	req, _ := svc.GetObjectRequest(&s3.GetObjectInput{
-		Bucket: aws.String(s.NameBucket),
-		Key:    aws.String(s.PathRootDir + hashSHA1),
-	})
-	url, err = req.Presign(168 * time.Hour)
-
-	if err != nil {
-		log.Println("Failed to sign request", err)
-	}
-	url = "https://s3." + s.Region + ".amazonaws.com/" +
-	s.NameBucket + "/" + s.PathRootDir + hashSHA1
+	url = hashSHA1
 	return 
 }

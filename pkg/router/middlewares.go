@@ -10,6 +10,11 @@ import (
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println("authMiddleware", r.URL.Path)
+		_, err := r.Cookie("session_id")
+		if err != nil {
+			log.Println("Cookie is not found")
+			return
+		}
 		if _, err := handlers.GetSession(r, Auth); err != nil {
 			log.Println("Error checking of session")
 			w.WriteHeader(http.StatusUnauthorized)

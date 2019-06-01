@@ -9,6 +9,7 @@ player:
   height: 40
   maxCountOfCommands: 10
   speedLimit: 1.5
+  jumpSpeed: -0.35
 
 block:
   width: 90

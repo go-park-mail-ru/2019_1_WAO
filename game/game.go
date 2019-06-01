@@ -64,6 +64,16 @@ func FieldGenerator(beginY float64, b float64, k uint16) (newBlocks []*Block) {
 	return
 }
 
+func (player *Player) updateScore(plate *Block) {
+	if player.lastBlock != nil {
+		player.AddScore(int(player.lastBlock.Y - plate.Y))
+	} else {
+		player.AddScore(int((viper.GetFloat64("canvas.heightField") - viper.GetFloat64("settings.spacing")) - plate.Y))
+	}
+	player.lastBlock = plate
+	log.Printf("player id %d - score: %d\n", player.IdP, player.scoreCounter)
+}
+
 // Функция изменения скорости
 
 func ProcessSpeed(delay float64, player *Player, gravity float64) {
@@ -81,56 +91,34 @@ func CircleDraw(player *Player) {
 	}
 }
 
-func KillPlayer(player *Player) {
-	player.room.Players.Range(func(_, player interface{}) bool {
-		idPlayer, err := json.Marshal(player.(*Player).IdP)
-		if err != nil {
-			log.Println("Error with encoding player's id was occured", err)
-			return true
-		}
-		player.(*Player).SendMessage(&Message{
-			Type:    "lose",
-			Payload: idPlayer,
-		})
-		return true
+func (player *Player) SendEndGame(typeName string) {
+	payload, err := json.Marshal(struct {
+		IdP   int `json:"idP"`
+		Score int `json:"score"`
+	}{
+		IdP:   player.IdP,
+		Score: player.scoreCounter,
+	})
+	if err != nil {
+		log.Println("Error with encoding player's id and score was occured", err)
+		return
+	}
+	player.SendMessage(&Message{
+		Type:    typeName,
+		Payload: payload,
 	})
 }
-
-// func Collision(delay float64, player *Player) {
-// 	var playerFalls = func(player *Player) bool {
-// 		return player.Dy >= 0
-// 	}
-// 	// var playerFallsWithoutScrollingSpeed = func(player *Player) bool {
-// 	// 	return (player.Dy - koefScrollSpeed) >= 0
-// 	// }
-// 	var mapDoesntScroll = func(player *Player) bool {
-// 		return player.stateScrollMap == false
-// 	}
-// 	var playerNextPositionUnderPlate = func(player *Player, plate *Block) bool {
-// 		return (player.Y + player.Dy*delay) < (plate.Y - 15)
-// 	}
-// 	// var playerNextPositionUnderPlateWithoutScroll = func(player *Player, plate *Block) bool {
-// 	// 	return (player.Y + (player.Dy-koefScrollSpeed)*delay) < (plate.Y - 15)
-// 	// }
-// 	var plate *Block = player.SelectNearestBlock(&player.room.Blocks)
-// 	if plate == nil {
-// 		log.Printf("* Plate is nil * for player id%d", player.IdP)
-// 		return
-// 	}
-// 	// if playerFalls(player) && mapDoesntScroll(player) || playerFallsWithoutScrollingSpeed(player) && !mapDoesntScroll(player) {
-// 	// 	if ((playerFalls(player) && mapDoesntScroll(player)) && playerNextPositionUnderPlate(player, plate)) || ((playerFallsWithoutScrollingSpeed(player) && !mapDoesntScroll(player)) && playerNextPositionUnderPlateWithoutScroll(player)) {
-// 	// 		return
-// 	// 	}
-// 	// }
-// 	if playerFalls(player) && mapDoesntScroll(player) {
-// 		if (playerFalls(player) && mapDoesntScroll(player)) && playerNextPositionUnderPlate(player, plate) {
-// 			return
-// 		}
-// 	}
-// 	player.Y = plate.Y - plate.h
-// 	// fmt.Println("******** COLLISION WAS OCCURED ********")
-// 	player.Jump()
-// }
+func KillPlayer(player *Player) {
+	player.room.Players.Range(func(_, plr interface{}) bool {
+		if plr == player {
+			plr.(*Player).SendEndGame("endgame")
+		} else {
+			plr.(*Player).SendEndGame("lose")
+		}
+		return true
+	})
+	log.Printf("! player id %d lose !\n", player.IdP)
+}
 
 func Collision(delay float64, player *Player, plate *Block) {
 	if plate == nil {
@@ -143,6 +131,11 @@ func Collision(delay float64, player *Player, plate *Block) {
 			return
 		}
 		player.Y = plate.Y - plate.h
+
+		// Score
+		if player.lastBlock == nil || player.lastBlock.Y >= plate.Y {
+			player.updateScore(plate)
+		}
 		// fmt.Println("******** COLLISION WAS OCCURED ********")
 		player.Jump()
 	}
@@ -212,19 +205,25 @@ func (canvas *Canvas) CanvasMove(delay float64) {
 }
 
 func (player *Player) MapUpdate(lastBlock *Block) (newBlocks []*Block, b float64) {
+	k := uint16(koefGeneratePlates * (float64(koefHeightOfMaxGenerateSlice) + (lastBlock.Y - player.canvas.y)))
+	if k == 0 {
+		newBlocks = nil
+		b = 0
+		return
+	}
 	beginY := lastBlock.Y - viper.GetFloat64("settings.spacing")
 	koefHeightOfMaxGenerateSlice := viper.GetInt("settings.koefHeightOfMaxGenerateSlice")
 	koefGeneratePlates := viper.GetFloat64("settings.koefGeneratePlates")
 	b = float64(koefHeightOfMaxGenerateSlice) + (lastBlock.Y - player.canvas.y)
-	k := uint16(koefGeneratePlates * (float64(koefHeightOfMaxGenerateSlice) + (lastBlock.Y - player.canvas.y)))
 	newBlocks = FieldGenerator(beginY, b, k)
-	// for id, block := range newBlocks {
-	// 	fmt.Printf("block %d - x: %f, y: %f\n", id, block.X, block.Y)
-	// }
+	for id, block := range newBlocks {
+		fmt.Printf("block %d - x: %f, y: %f\n", id, block.X, block.Y)
+	}
 	// ! TO CATCH NIL !
-	// if len(newBlocks) == 0 {
-	// 	log.Panicf("beginY: %f, b: %f, k: %d\n", beginY, b, k)
-	// }
+	if len(newBlocks) == 0 {
+		log.Panicf("beginY: %f, b: %f, k: %d\n lastBlock.Y: %f, player.y: %f, player.canvas.y: %f, player.canvas.dy: %f\nkoefHeightOfMaxGenerateSlice: %d, koefGeneratePlates: %f\n", beginY, b, k, lastBlock.Y, player.Y,
+			player.canvas.y, player.canvas.dy, koefHeightOfMaxGenerateSlice, koefGeneratePlates)
+	}
 	return
 }
 
@@ -242,9 +241,9 @@ func Engine(player *Player) {
 	defer func() {
 		if e := recover(); e != nil {
 			log.Println("Error at physic treatment was occured (function Engine)", e)
-			if CheckDevelopmentEnvironment() {
-				KillPlayer(player)
-			}
+			// if CheckDevelopmentEnvironment() {
+			// 	KillPlayer(player)
+			// }
 			RemovePlayer(player)
 		}
 	}()
@@ -260,9 +259,9 @@ func Engine(player *Player) {
 		default:
 			if player.Y-player.H > player.canvas.y+HeightField {
 				// log.Printf("Player with id %d lose!\n", player.IdP)
-				if CheckDevelopmentEnvironment() {
-					KillPlayer(player)
-				}
+				// if CheckDevelopmentEnvironment() {
+				// 	KillPlayer(player)
+				// }
 				RemovePlayer(player)
 				return
 			}
@@ -275,63 +274,66 @@ func Engine(player *Player) {
 					player.room.mutexEngine.Lock()
 					player.room.scrollCount++
 					player.room.mutexEngine.Unlock()
-					// log.Println("Map scrolling is starting...")
+					log.Println("Map scrolling is starting...")
 					// fmt.Printf("Count of scrolling: %d\n", player.room.scrollCount)
-					// fmt.Println("Players:")
-					// player.room.Players.Range(func(_, plr interface{}) bool {
-					// 	fmt.Printf("id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", plr.(*Player).IdP, plr.(*Player).X, plr.(*Player).Y, plr.(*Player).Dx, plr.(*Player).Dy)
-					// 	fmt.Printf("Canvas for id%d y: %f, dy: %f\n", plr.(*Player).IdP, plr.(*Player).canvas.y, plr.(*Player).canvas.dy)
-					// 	return true
-					// })
+					fmt.Println("Players:")
+					player.room.Players.Range(func(_, plr interface{}) bool {
+						fmt.Printf("id%d	-	x: %f, y: %f, Dx: %f, Dy: %f\n", plr.(*Player).IdP, plr.(*Player).X, plr.(*Player).Y, plr.(*Player).Dx, plr.(*Player).Dy)
+						fmt.Printf("Canvas for id%d y: %f, dy: %f\n", plr.(*Player).IdP, plr.(*Player).canvas.y, plr.(*Player).canvas.dy)
+						return true
+					})
 					// Send new map to players
 					player.room.mutexEngine.Lock()
 					lastBlock := player.room.Blocks[len(player.room.Blocks)-1]
 					player.room.mutexEngine.Unlock()
 					newBlocks, b := player.MapUpdate(lastBlock)
-					player.room.mutexEngine.Lock()
-					player.room.Blocks = append(player.room.Blocks, newBlocks...)
-					player.room.mutexEngine.Unlock()
-					var buffer []byte
-					var err error
-					player.room.mutexEngine.Lock()
-					player.room.Players.Range(func(_, playerWithCanvas interface{}) bool {
-						var players []*Player
-						player.room.Players.Range(func(_, player interface{}) bool {
-							playerCopy := player.(*Player).playerToAnotherCanvas(playerWithCanvas.(*Player))
-							players = append(players, playerCopy)
+					if newBlocks != nil {
+						player.room.mutexEngine.Lock()
+						player.room.Blocks = append(player.room.Blocks, newBlocks...)
+						player.room.mutexEngine.Unlock()
+						var buffer []byte
+						var err error
+						player.room.mutexEngine.Lock()
+						player.room.Players.Range(func(_, playerWithCanvas interface{}) bool {
+							var players []*Player
+							player.room.Players.Range(func(_, player interface{}) bool {
+								playerCopy := player.(*Player).playerToAnotherCanvas(playerWithCanvas.(*Player))
+								players = append(players, playerCopy)
+								return true
+							})
+							newBlocksForPlayer := playerWithCanvas.(*Player).BlocksToAnotherCanvas(newBlocks, b)
+							if buffer, err = json.Marshal(struct {
+								Blocks  []*Block  `json:"blocks"`
+								Players []*Player `json:"players"`
+							}{
+								Blocks:  newBlocksForPlayer,
+								Players: players,
+							}); err != nil {
+								fmt.Println("Error encoding new blocks", err)
+								player.room.mutexEngine.Unlock()
+								return false // ?
+							}
+							if CheckDevelopmentEnvironment() {
+								playerWithCanvas.(*Player).SendMessage(&Message{
+									Type:    "map",
+									Payload: buffer,
+								})
+							}
+							// log.Printf("New blocks for id %d:\n", playerWithCanvas.(*Player).IdP)
+							// for _, block := range newBlocksForPlayer {
+							// 	fmt.Printf("x: %f, y: %f, w: %f, h: %f\n", block.X, block.Y, block.w, block.h)
+							// }
 							return true
 						})
-						newBlocksForPlayer := playerWithCanvas.(*Player).BlocksToAnotherCanvas(newBlocks, b)
-						if buffer, err = json.Marshal(struct {
-							Blocks  []*Block  `json:"blocks"`
-							Players []*Player `json:"players"`
-						}{
-							Blocks:  newBlocksForPlayer,
-							Players: players,
-						}); err != nil {
-							fmt.Println("Error encoding new blocks", err)
-							player.room.mutexEngine.Unlock()
-							return false // ?
+						player.room.mutexEngine.Unlock()
+						log.Println("******* MAP WAS SENDED *******")
+						log.Println("New blocks:")
+						for _, block := range newBlocks {
+							fmt.Printf("x: %f, y: %f, w: %f, h: %f\n", block.X, block.Y, block.w, block.h)
 						}
-						if CheckDevelopmentEnvironment() {
-							playerWithCanvas.(*Player).SendMessage(&Message{
-								Type:    "map",
-								Payload: buffer,
-							})
-						}
-						// log.Printf("New blocks for id %d:\n", playerWithCanvas.(*Player).IdP)
-						// for _, block := range newBlocksForPlayer {
-						// 	fmt.Printf("x: %f, y: %f, w: %f, h: %f\n", block.X, block.Y, block.w, block.h)
-						// }
-						return true
-					})
-					player.room.mutexEngine.Unlock()
-					log.Println("******* MAP WAS SENDED *******")
-					log.Println("New blocks:")
-					for _, block := range newBlocks {
-						fmt.Printf("x: %f, y: %f, w: %f, h: %f\n", block.X, block.Y, block.w, block.h)
+					} else {
+						log.Println("New blocks are absent. ! k = 0 !")
 					}
-
 				}
 			} else if player.Y-player.canvas.y >= minScrollHeight && player.stateScrollMap == true {
 				player.room.mutexEngine.Lock()
@@ -339,7 +341,7 @@ func Engine(player *Player) {
 				player.room.mutexEngine.Unlock()
 				log.Printf("Canvas with player id%d was stopped...\n", player.IdP)
 				// player.room.mutex.Lock()
-				// log.Println("Map scrolling is finishing...")
+				log.Println("Map scrolling is finishing...")
 				// fmt.Printf("Count of scrolling: %d\n", player.room.scrollCount)
 				// fmt.Println("Players:")
 				// player.room.mutex.Unlock()

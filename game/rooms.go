@@ -69,10 +69,15 @@ func (room *Room) Run() {
 		case player := <-room.unregister:
 			log.Println("Unregistering...")
 			room.Players.Delete(player.IdP)
-			log.Printf("Player %d was remoted from room\n", player.IdP)
+			log.Printf("Player %d was removed from the room\n", player.IdP)
 			log.Printf("Count of players: %d\n", length(&room.Players))
 
-			if length(&room.Players) == 0 {
+			if length(&room.Players) == 1 {
+				room.Players.Range(func(_, plr interface{}) bool {
+					plr.(*Player).SendEndGame("win")
+					// plr.(*Player).connection.Close()
+					return true
+				})
 				room.finish <- struct{}{}
 			}
 		case player := <-room.register:
@@ -85,7 +90,6 @@ func (room *Room) Run() {
 			}
 		case <-room.init:
 			go func() {
-
 				type BlocksAndPlayers struct {
 					Blocks  []*Block  `json:"blocks"`
 					Players []*Player `json:"players"`
@@ -167,6 +171,7 @@ func (room *Room) AddPlayer(player *Player) {
 func RemovePlayer(player *Player) {
 
 	log.Printf("id deleting player: %d\n", player.IdP)
+	KillPlayer(player)
 	player.messagesClose <- struct{}{}
 	player.room.unregister <- player
 	log.Println("Player was removed!")

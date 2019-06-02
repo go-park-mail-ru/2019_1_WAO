@@ -53,14 +53,15 @@ func (s *DBService) GetUser(userdata model.NicknameUser) (user *model.User, err 
 	}
 }
 
-func (s *DBService) CreateUser(user model.UserRegister) (nickname string, err error) {
+func (s *DBService) CreateUser(user model.UserRegister) (out *model.RegUser, err error) {
+	tmp := model.RegUser{}
 	err = s.DB.QueryRow(`INSERT INTO users (email, nickname, password, score, games, wins, image)
-	VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING nickname;`,
-	user.Email, user.Nickname, user.Password, 0, 0, 0, "default_image.png").Scan(&nickname)
+	VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, nickname;`,
+	user.Email, user.Nickname, user.Password, 0, 0, 0, "default_image.png").Scan(&tmp.ID, &tmp.Nickname)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return user.Nickname, nil
+	return &tmp, nil
 }
 
 func (s *DBService) UpdateUser(user model.UpdateDataImport) (out model.UpdateDataExport, err error) {
@@ -93,8 +94,8 @@ func (s *DBService) UpdateUser(user model.UpdateDataImport) (out model.UpdateDat
 }
 func (s *DBService) CheckUser(user model.SigninUser) (out *model.UserRegister, err error) {
 	tmp := model.UserRegister{}
-	row := s.DB.QueryRow(`SELECT email, nickname, password FROM users WHERE nickname = $1;`, user.Nickname)
-	switch err := row.Scan(&tmp.Email, &tmp.Nickname, &tmp.Password); err {
+	row := s.DB.QueryRow(`SELECT id, email, nickname, password FROM users WHERE nickname = $1;`, user.Nickname)
+	switch err := row.Scan(&tmp.ID, &tmp.Email, &tmp.Nickname, &tmp.Password); err {
 	case sql.ErrNoRows:
 		log.Println("No rows were returned!")
 		return nil, err

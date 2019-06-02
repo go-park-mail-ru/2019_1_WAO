@@ -26,10 +26,10 @@ func CreateRouter(prefix, urlCORS, urlImage string, serviceSession auth.AuthChec
 	apiV1.HandleFunc("/users", userHandler.GetAll).Methods("GET", "OPTIONS")
 	apiV1.HandleFunc("/users", userHandler.AddUser).Methods("POST", "OPTIONS")	
 	apiV1.Handle("/users/{login}", AuthMiddleware(http.HandlerFunc(userHandler.GetUsersByNick))).Methods("GET", "OPTIONS")
-	// apiV1.Handle("/users/man/{login}", http.HandlerFunc(userHandler.ModifiedUser))//.Methods("PUT", "OPTIONS")
 	apiV1.Handle("/users/{login}", AuthMiddleware(http.HandlerFunc(userHandler.ModifiedUser))).Methods("PUT", "OPTIONS")
 	apiV1.Handle("/session", AuthMiddleware(http.HandlerFunc(userHandler.Signout))).Methods("DELETE")
 	apiV1.HandleFunc("/session", userHandler.CheckSession).Methods("GET", "OPTIONS")
+
 	apiV1.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	})

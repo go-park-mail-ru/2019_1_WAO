@@ -3,6 +3,7 @@ package model
 // easyjson -all .\models.go
 
 type UserRegister struct {
+	ID	string	`json:"id, omitempty"`
 	Email    string `json:"email, omitempty"`
 	Password string `json:"password, omitempty"`
 	Nickname string `json:"nickname, omitempty"`
@@ -34,6 +35,11 @@ type Player struct {
 type SigninUser struct {
 	Nickname string `json:"nickname, omitempty"`
 	Password string `json:"password, omitempty"`
+}
+
+type RegUser struct {
+	ID string `json:"id, omitempty"`
+	Nickname string `json:"nickname, omitempty"`
 }
 
 type NicknameUser struct {

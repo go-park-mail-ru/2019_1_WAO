@@ -89,16 +89,17 @@ func (h *Handler) AddUser(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("DEBUG: ", user)
 
-	nickname, err := h.hand.CreateUser(user)
+	infoUser, err := h.hand.CreateUser(user)
 	if err != nil {
 		log.Printf("Error type: %T: %s\n", err, err.Error())
 	}
-	log.Println("New record NICK is:", nickname)
+	log.Println("New record NICK is:", infoUser.Nickname)
 
 	sess, err := h.auth.Create(
 		context.Background(),
 		&auth.UserData{
-			Login: nickname,
+			Login: infoUser.Nickname,
+			Id: infoUser.ID,
 			Agent: r.UserAgent(),
 		})
 	if err != nil {
@@ -276,7 +277,6 @@ func (h *Handler) Signin(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Check User Error: %T\n %s\n", err, err.Error())
 		w.WriteHeader(http.StatusBadRequest)
 	}
-	log.Println("DEBUG Structure AFTER: ", data)
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(data.Password))
 	if err != nil {
@@ -290,6 +290,7 @@ func (h *Handler) Signin(w http.ResponseWriter, r *http.Request) {
 		&auth.UserData{
 			Login:    user.Nickname,
 			Password: user.Password,
+			Id: user.ID,
 			Agent:    r.UserAgent(),
 		})
 	if err != nil {
@@ -306,6 +307,7 @@ func (h *Handler) Signin(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, cookie)
 }
+
 
 func GetSession(r *http.Request, authClient auth.AuthCheckerClient) (*auth.UserData, error) {
 	cookieSessionID, err := r.Cookie("session_id")
@@ -344,8 +346,9 @@ func (h *Handler) CheckSession(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 
-	nickname := model.NicknameUser{
+	nickname := model.RegUser{
 		Nickname: session.Login,
+		ID: session.Id,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	out, err := nickname.MarshalJSON()

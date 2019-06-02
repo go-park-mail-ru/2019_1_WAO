@@ -30,6 +30,7 @@ func NewSessionManager() *SessionManager {
 func generateToken(in *auth.UserData) (token string, err error) {
 	rawToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"username": in.Login,
+		"id":       in.Id,
 		"agent":    in.Agent,
 		"exp":      time.Now().Add(expiration).Unix(),
 	})
@@ -75,9 +76,14 @@ func (sm *SessionManager) Check(ctx context.Context, in *auth.Token) (*auth.User
 		if !ok {
 			return nil, errors.New("Bad claims: field 'username' not exist")
 		}
+		id, ok := claims["id"]
+		if !ok {
+			return nil, errors.New("Bad claims: field 'username' not exist")
+		}
 
 		user := &auth.UserData{
 			Login: username.(string),
+			Id:    id.(string),
 		}
 		return user, nil
 	}

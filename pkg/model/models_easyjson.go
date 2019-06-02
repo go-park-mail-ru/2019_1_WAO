@@ -940,3 +940,110 @@ func (v *NicknameUser) UnmarshalJSON(data []byte) error {
 func (v *NicknameUser) UnmarshalEasyJSON(l *jlexer.Lexer) {
 	easyjsonD2b7633eDecodeGithubComDmitriyPrischepBackendWAOPkgModel8(l, v)
 }
+func easyjsonD2b7633eDecodeGithubComDmitriyPrischepBackendWAOPkgModel9(in *jlexer.Lexer, out *GameInfo) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeString()
+		in.WantColon()
+		if in.IsNull() {
+			in.Skip()
+			in.WantComma()
+			continue
+		}
+		switch key {
+		case "id":
+			out.ID = int(in.Int())
+		case "nickname":
+			out.Nickname = string(in.String())
+		case "score":
+			out.Score = int(in.Int())
+		case "win":
+			out.Win = int(in.Int())
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjsonD2b7633eEncodeGithubComDmitriyPrischepBackendWAOPkgModel9(out *jwriter.Writer, in GameInfo) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"id\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.ID))
+	}
+	{
+		const prefix string = ",\"nickname\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.Nickname))
+	}
+	{
+		const prefix string = ",\"score\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.Score))
+	}
+	{
+		const prefix string = ",\"win\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.Win))
+	}
+	out.RawByte('}')
+}
+
+// MarshalJSON supports json.Marshaler interface
+func (v GameInfo) MarshalJSON() ([]byte, error) {
+	w := jwriter.Writer{}
+	easyjsonD2b7633eEncodeGithubComDmitriyPrischepBackendWAOPkgModel9(&w, v)
+	return w.Buffer.BuildBytes(), w.Error
+}
+
+// MarshalEasyJSON supports easyjson.Marshaler interface
+func (v GameInfo) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjsonD2b7633eEncodeGithubComDmitriyPrischepBackendWAOPkgModel9(w, v)
+}
+
+// UnmarshalJSON supports json.Unmarshaler interface
+func (v *GameInfo) UnmarshalJSON(data []byte) error {
+	r := jlexer.Lexer{Data: data}
+	easyjsonD2b7633eDecodeGithubComDmitriyPrischepBackendWAOPkgModel9(&r, v)
+	return r.Error()
+}
+
+// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
+func (v *GameInfo) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjsonD2b7633eDecodeGithubComDmitriyPrischepBackendWAOPkgModel9(l, v)
+}

@@ -111,7 +111,7 @@ func (h *Handler) AddUser(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_id",
 		Value:    sess.Value,
-		Expires:  time.Now().Add(10 * time.Minute),
+		Expires:  time.Now().Add(360 * time.Minute),
 		HttpOnly: true,
 	})
 }
@@ -140,6 +140,41 @@ func (h *Handler) GetUsersByNick(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write(out)
+}
+
+func (h *Handler) SetPoints(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	params := mux.Vars(r)
+	userLogin := params["login"]
+	fmt.Println("userLogin: ", userLogin)
+	if userLogin == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	data := model.GameInfo{}
+	if err := data.UnmarshalJSON(body); err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = h.hand.ChangeData(data)
+	if err != nil {
+		log.Printf("Update Game data error: %T\n %s\n", err, err.Error())
+		w.WriteHeader(http.StatusConflict)
+		return
+	}
 }
 
 func (h *Handler)ModifiedUser(w http.ResponseWriter, r *http.Request) {

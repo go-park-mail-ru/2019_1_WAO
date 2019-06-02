@@ -25,6 +25,7 @@ func CreateRouter(prefix, urlCORS, urlImage string, serviceSession auth.AuthChec
 
 	apiV1.HandleFunc("/users", userHandler.GetAll).Methods("GET", "OPTIONS")
 	apiV1.HandleFunc("/users", userHandler.AddUser).Methods("POST", "OPTIONS")	
+	apiV1.HandleFunc("/set/{login}", userHandler.SetPoints).Methods("POST", "OPTIONS")//.Host("100.100.158.95")
 	apiV1.Handle("/users/{login}", AuthMiddleware(http.HandlerFunc(userHandler.GetUsersByNick))).Methods("GET", "OPTIONS")
 	apiV1.Handle("/users/{login}", AuthMiddleware(http.HandlerFunc(userHandler.ModifiedUser))).Methods("PUT", "OPTIONS")
 	apiV1.Handle("/session", AuthMiddleware(http.HandlerFunc(userHandler.Signout))).Methods("DELETE")
@@ -44,3 +45,4 @@ func CreateRouter(prefix, urlCORS, urlImage string, serviceSession auth.AuthChec
 	siteHandler = PanicMiddleware(siteHandler)
 	return siteHandler
 }
+

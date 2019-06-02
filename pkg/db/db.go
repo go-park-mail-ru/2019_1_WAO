@@ -106,3 +106,18 @@ func (s *DBService) CheckUser(user model.SigninUser) (out *model.UserRegister, e
 		return nil, err
 	}
 }
+
+//UPDATE users SET score = score + 11, wins = wins + 0, games = games + 1 WHERE id = 25;
+func (s *DBService) ChangeData(user model.GameInfo) (err error) {
+	result, err := s.DB.Exec(`UPDATE users SET score = score + $2, wins = wins + $3, games = games + 1 WHERE id = $1 ;`,
+		user.ID, user.Score, user.Win)
+    if err != nil {
+        return err
+    }
+	rowsAffected, err := result.RowsAffected()
+	log.Println("ROW_AFFECTED", rowsAffected)
+    if err != nil {
+        return err
+	}
+	return nil
+}

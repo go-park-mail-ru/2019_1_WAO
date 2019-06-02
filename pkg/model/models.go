@@ -59,3 +59,10 @@ type UpdateDataExport struct {
 	Nickname string `json:"nickname, omitempty"`
 	Image    string `json:"image, omitempty"`
 }
+
+type GameInfo struct {
+	ID int `json:"id, omitempty"`
+	Nickname string `json:"nickname, omitempty"`
+	Score int `json:"score, omitempty"`
+	Win int `json:"win, omitempty"`
+}

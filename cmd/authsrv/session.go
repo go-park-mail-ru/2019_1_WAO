@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	expiration = 10 * time.Minute
+	expiration = 360 * time.Minute
 )
 
 type SessionManager struct {

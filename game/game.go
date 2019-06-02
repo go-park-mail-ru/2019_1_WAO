@@ -112,6 +112,15 @@ func KillPlayer(player *Player) {
 	player.room.Players.Range(func(_, plr interface{}) bool {
 		if plr == player {
 			plr.(*Player).SendEndGame("endgame")
+			player.room.results[player.IdP] = struct {
+				id    int
+				score int
+				win   int
+			}{
+				id:    player.IdP,
+				score: player.scoreCounter,
+				win:   0,
+			}
 		} else {
 			plr.(*Player).SendEndGame("lose")
 		}
@@ -205,6 +214,8 @@ func (canvas *Canvas) CanvasMove(delay float64) {
 }
 
 func (player *Player) MapUpdate(lastBlock *Block) (newBlocks []*Block, b float64) {
+	koefHeightOfMaxGenerateSlice := viper.GetInt("settings.koefHeightOfMaxGenerateSlice")
+	koefGeneratePlates := viper.GetFloat64("settings.koefGeneratePlates")
 	k := uint16(koefGeneratePlates * (float64(koefHeightOfMaxGenerateSlice) + (lastBlock.Y - player.canvas.y)))
 	if k == 0 {
 		newBlocks = nil
@@ -212,8 +223,6 @@ func (player *Player) MapUpdate(lastBlock *Block) (newBlocks []*Block, b float64
 		return
 	}
 	beginY := lastBlock.Y - viper.GetFloat64("settings.spacing")
-	koefHeightOfMaxGenerateSlice := viper.GetInt("settings.koefHeightOfMaxGenerateSlice")
-	koefGeneratePlates := viper.GetFloat64("settings.koefGeneratePlates")
 	b = float64(koefHeightOfMaxGenerateSlice) + (lastBlock.Y - player.canvas.y)
 	newBlocks = FieldGenerator(beginY, b, k)
 	for id, block := range newBlocks {

@@ -83,7 +83,7 @@ func (player *Player) SetPlayerOnPlate(block *Block) {
 	player.X = block.X + block.w/2 // Отцентровка игрока по середине
 }
 
-func NewPlayer(conn *websocket.Conn) *Player {
+func NewPlayer(conn *websocket.Conn, id int) *Player {
 	newPlayer := &Player{
 		connection:    conn,
 		out:           make(chan []byte),
@@ -94,6 +94,7 @@ func NewPlayer(conn *websocket.Conn) *Player {
 		Dy:            viper.GetFloat64("player.dy"),
 		W:             viper.GetFloat64("player.width"),
 		H:             viper.GetFloat64("player.height"),
+		IdP:           id,
 		canvas: &Canvas{
 			y:  0,
 			dy: 0,

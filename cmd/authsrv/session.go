@@ -67,6 +67,9 @@ func (sm *SessionManager) Check(ctx context.Context, in *auth.Token) (*auth.User
 		}
 		return []byte(secret), nil
 	})
+	if token == nil {
+		return nil, errors.New("Token is empty")
+	}
 	if err != nil {
 		log.Printf("Unexpected signing method: %v", token.Header["alg"])
 		return nil, err

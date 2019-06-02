@@ -337,7 +337,7 @@ func (h *Handler) Signin(w http.ResponseWriter, r *http.Request) {
 	cookie := &http.Cookie{
 		Name:     "session_id",
 		Value:    token.Value,
-		Expires:  time.Now().Add(10 * time.Minute),
+		Expires:  time.Now().Add(360 * time.Minute),
 		HttpOnly: true,
 	}
 	http.SetCookie(w, cookie)

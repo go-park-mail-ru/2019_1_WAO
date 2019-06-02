@@ -23,10 +23,11 @@ func TestProcessSpeed(t *testing.T) {
 	if test.player.Dy != test.expected {
 		t.Errorf("Expected dy: %f, but got: %f\n", test.expected, test.player.Dy)
 	}
+	// player.Dy += (gravity * delay)
 }
 
 func TestCircleDraw(t *testing.T) {
-	viper.SetConfigFile("./config/test.yml")
+	viper.SetConfigFile("../config/test.yml")
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(err)
@@ -305,7 +306,7 @@ func TestCollision(t *testing.T) {
 }
 
 func TestFieldGenerator(t *testing.T) {
-	viper.SetConfigFile("./config/test.yml")
+	viper.SetConfigFile("../config/test.yml")
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(err)
@@ -315,6 +316,9 @@ func TestFieldGenerator(t *testing.T) {
 	b := viper.GetFloat64("settings.koefHeightOfMaxGenerateSlice")
 	k := uint16(10)
 	blocks := FieldGenerator(beginY, b, k)
+	// for _, b := range blocks {
+	// 	fmt.Printf("x: %f, y: %f, dy: %f, w: %f, h: %f\n", b.X, b.Y, b.Dy, b.w, b.h)
+	// }
 	if blocks[len(blocks)-1].Y != (beginY - b + (b / float64(k))) {
 		t.Fatalf("Last block has incorrect position")
 	}
@@ -523,7 +527,7 @@ func TestHighestPlayer(t *testing.T) {
 }
 
 func TestEngine(t *testing.T) {
-	viper.SetConfigFile("./config/test.yml")
+	viper.SetConfigFile("../config/test.yml")
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(err)
@@ -566,7 +570,7 @@ func TestEngine(t *testing.T) {
 }
 
 func TestEngineScroll(t *testing.T) {
-	viper.SetConfigFile("./config/test.yml")
+	viper.SetConfigFile("../config/test.yml")
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(err)

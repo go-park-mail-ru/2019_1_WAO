@@ -82,19 +82,53 @@ func runServer(GameController *Game) *httptest.Server {
 			return
 		}
 
+		// !!!
 		player := NewPlayer(ws)
 		GameController.AddPlayer(player)
 	}))
 }
 
 func gameActivate(s *httptest.Server, GameController *Game, done <-chan struct{}) {
+	// Convert http://127.0.0.1 to ws://127.0.0.1
+	// u := "ws" + strings.TrimPrefix(s.URL, "http")
 	go GameController.Run()
 	<-done
 	s.Close()
 }
 
+// func TestGameRun(t *testing.T) {
+// 	game := NewGame(2)
+// 	done := make(chan struct{})
+// 	s := runServer(game)
+// 	go gameActivate(s, game, done)
+// 	// players := make([]*Player, 3)
+// 	// u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/ws"}
+// 	// u.RequestURI()
+// 	h :=
+// 	for i := 0; i < 2; i++ {
+// 		ws, _, err := websocket.DefaultDialer.Dial("ws://"+s.Listener.Addr().String()+"/ws", nil)
+// 		if err != nil {
+// 			t.Fatalf("%v", err)
+// 		}
+// 		defer ws.Close()
+// 	}
+// 	if len(game.rooms) != 1 {
+// 		t.Fatalf("Expected: 1 rooms, but got: %d", len(game.rooms))
+// 	}
+// 	ws, _, err := websocket.DefaultDialer.Dial("ws://"+s.Listener.Addr().String()+"/ws", nil)
+// 	if err != nil {
+// 		t.Fatalf("%v", err)
+// 	}
+// 	defer ws.Close()
+// 	// players[2] = NewPlayer(ws)
+// 	if len(game.rooms) != 2 {
+// 		t.Fatalf("Expected: 2 rooms, but got: %d", len(game.rooms))
+// 	}
+// 	done <- struct{}{}
+// }
+
 func TestAddPlayerToTheGame(t *testing.T) {
-	viper.SetConfigFile("./config/test.yml")
+	viper.SetConfigFile("../config/test.yml")
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(err)
@@ -108,4 +142,3 @@ func TestAddPlayerToTheGame(t *testing.T) {
 	game.AddPlayer(player2)
 	game.AddPlayer(player3)
 }
-

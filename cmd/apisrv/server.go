@@ -21,7 +21,7 @@ var (
 )
 
 const (
-	expiration = 10 * time.Minute
+	expiration = 360 * time.Minute
 )
 
 func main() {

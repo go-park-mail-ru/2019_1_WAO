@@ -29,22 +29,28 @@ type Message struct {
 }
 
 type Player struct {
-	connection     *websocket.Conn `json:"-"`
-	room           *Room           `json:"-"`
-	commands       chan *Command   `json:"-"`
-	engineDone     chan struct{}   `json:"-"`
-	messagesClose  chan struct{}   `json"-"`
-	canvas         *Canvas         `json:"-"`
-	out            chan []byte     `json:"-"`
-	IdP            int             `json:"idP"`
-	X              float64         `json:"x"`
-	Y              float64         `json:"y"`
-	Dx             float64         `json:"dx"`
-	Dy             float64         `json:"dy"`
-	W              float64         `json:"-"`
-	H              float64         `json:"-"`
-	stateScrollMap bool            `json:"-"`
-	commandCounter uint64          `json:"-"`
+	connection     *websocket.Conn
+	room           *Room
+	commands       chan *Command
+	engineDone     chan struct{}
+	messagesClose  chan struct{}
+	canvas         *Canvas
+	out            chan []byte
+	IdP            int     `json:"idP"`
+	X              float64 `json:"x"`
+	Y              float64 `json:"y"`
+	Dx             float64 `json:"dx"`
+	Dy             float64 `json:"dy"`
+	W              float64 `json:"-"`
+	H              float64 `json:"-"`
+	stateScrollMap bool
+	commandCounter uint64
+	scoreCounter   int
+	lastBlock      *Block
+}
+
+func (player *Player) AddScore(score int) {
+	player.scoreCounter += score
 }
 
 func (player *Player) SelectNearestBlock(blocks *[]*Block) (nearestBlock *Block) {
@@ -77,7 +83,7 @@ func (player *Player) SetPlayerOnPlate(block *Block) {
 	player.X = block.X + block.w/2 // Отцентровка игрока по середине
 }
 
-func NewPlayer(conn *websocket.Conn) *Player {
+func NewPlayer(conn *websocket.Conn, id int) *Player {
 	newPlayer := &Player{
 		connection:    conn,
 		out:           make(chan []byte),
@@ -88,12 +94,15 @@ func NewPlayer(conn *websocket.Conn) *Player {
 		Dy:            viper.GetFloat64("player.dy"),
 		W:             viper.GetFloat64("player.width"),
 		H:             viper.GetFloat64("player.height"),
+		IdP:           id,
 		canvas: &Canvas{
 			y:  0,
 			dy: 0,
 		},
 		stateScrollMap: false,
 		commandCounter: 0,
+		scoreCounter:   0,
+		lastBlock:      nil,
 	}
 	return newPlayer
 }
@@ -158,9 +167,6 @@ func (p *Player) Listen() {
 					}
 					return true
 				})
-			case "lose":
-				fmt.Println("!Player lose!")
-				return
 			}
 		}
 	}()

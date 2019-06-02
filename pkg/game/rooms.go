@@ -1,8 +1,11 @@
 package game
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
+	"net/http"
 	"sync"
 
 	"github.com/spf13/viper"
@@ -25,6 +28,11 @@ type Room struct {
 	mutexEngine          *sync.Mutex
 	scrollCount          int
 	isStarted            bool
+	results              map[int]struct {
+		id    int
+		score int
+		win   int
+	}
 	// scroller             *Player
 }
 
@@ -41,6 +49,11 @@ func NewRoom(maxPlayers int, game *Game) *Room {
 		mutexEngine:          &sync.Mutex{},
 		scrollCount:          0,
 		isStarted:            false,
+		results: make(map[int]struct {
+			id    int
+			score int
+			win   int
+		}),
 		// scroller:             nil,
 	}
 }
@@ -64,19 +77,42 @@ func (room *Room) Run() {
 	for {
 		select {
 		case <-room.finish:
+			for _, pl := range room.results {
+				str := fmt.Sprintf(`{"id": %d, "score": %d, "win": %d}`, pl.id, pl.score, pl.win)
+				data := []byte(str)
+				r := bytes.NewReader(data)
+				_, err := http.Post("0.0.0.0:8080", "application/json", r)
+				if err != nil {
+					log.Println("Error with sending results was occured")
+					return
+				}
+			}
 			initFinish <- struct{}{}
 			room.game.RemoveRoom(room)
 		case player := <-room.unregister:
 			log.Println("Unregistering...")
 			room.Players.Delete(player.IdP)
-			log.Printf("Player %d was remoted from room\n", player.IdP)
+			log.Printf("Player %d was removed from the room\n", player.IdP)
 			log.Printf("Count of players: %d\n", length(&room.Players))
 
-			if length(&room.Players) == 0 {
+			if length(&room.Players) == 1 {
+				room.Players.Range(func(_, plr interface{}) bool {
+					plr.(*Player).SendEndGame("win")
+					player.room.results[plr.(*Player).IdP] = struct {
+						id    int
+						score int
+						win   int
+					}{
+						id:    plr.(*Player).IdP,
+						score: plr.(*Player).scoreCounter,
+						win:   1,
+					}
+					// plr.(*Player).connection.Close()
+					return true
+				})
 				room.finish <- struct{}{}
 			}
 		case player := <-room.register:
-			player.IdP = length(&room.Players)
 			room.Players.Store(player.IdP, player)
 			log.Printf("Player %d added to game\n", player.IdP)
 			log.Printf("Count of players: %d, MaxPlayersCount: %d\n", length(&room.Players), room.MaxPlayers)
@@ -85,7 +121,6 @@ func (room *Room) Run() {
 			}
 		case <-room.init:
 			go func() {
-
 				type BlocksAndPlayers struct {
 					Blocks  []*Block  `json:"blocks"`
 					Players []*Player `json:"players"`
@@ -109,7 +144,7 @@ func (room *Room) Run() {
 					Blocks:  room.Blocks,
 					Players: players,
 				}
-				if viper.ConfigFileUsed() == "./config/test.yml" {
+				if viper.ConfigFileUsed() == "../config/test.yml" {
 					room.mutexRoom.Unlock()
 					return
 				}
@@ -167,6 +202,7 @@ func (room *Room) AddPlayer(player *Player) {
 func RemovePlayer(player *Player) {
 
 	log.Printf("id deleting player: %d\n", player.IdP)
+	KillPlayer(player)
 	player.messagesClose <- struct{}{}
 	player.room.unregister <- player
 	log.Println("Player was removed!")
